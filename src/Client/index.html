@@ -1,0 +1,61 @@
+﻿<!doctype html>
+<html>
+<head>
+    <title>SafeAppMinimal</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" href="/favicon.png"/>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: system-ui, sans-serif; background: #f5f5f5; color: #222; }
+
+        header { background: #2d6a4f; color: white; padding: 1rem 2rem; display: flex; align-items: center; gap: 1rem; }
+        header img { width: 32px; height: 32px; }
+        header h1 { font-size: 1.25rem; font-weight: 600; }
+
+        main { max-width: 640px; margin: 3rem auto; padding: 0 1rem; }
+
+        .card { background: white; border-radius: 12px; padding: 2rem; box-shadow: 0 2px 8px rgba(0,0,0,0.08); text-align: center; }
+        .card h2 { font-size: 1.1rem; color: #555; margin-bottom: 2rem; font-weight: 400; }
+
+        .counter-value { font-size: 5rem; font-weight: 700; color: #2d6a4f; line-height: 1; margin-bottom: 2rem; }
+
+        .controls { display: flex; gap: 1rem; justify-content: center; align-items: center; }
+        button { width: 48px; height: 48px; border-radius: 50%; border: 2px solid #2d6a4f; background: white;
+                 font-size: 1.5rem; cursor: pointer; color: #2d6a4f; transition: background 0.15s, color 0.15s; }
+        button:hover { background: #2d6a4f; color: white; }
+
+        #reset-btn { width: auto; border-radius: 24px; padding: 0 1.25rem; font-size: 0.85rem; height: 36px; color: #888; border-color: #ccc; }
+        #reset-btn:hover { background: #eee; color: #333; }
+
+        .items-section { margin-top: 2rem; text-align: left; }
+        .items-section h3 { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; color: #888; margin-bottom: 0.75rem; }
+        #item-list { list-style: none; }
+        #item-list li { padding: 0.5rem 0.75rem; border-radius: 6px; background: #f0faf4; margin-bottom: 0.4rem; font-size: 0.95rem; color: #2d6a4f; }
+    </style>
+</head>
+<body>
+    <header>
+        <img src="favicon.png" alt="logo" />
+        <h1>SafeAppMinimal</h1>
+    </header>
+    <main>
+        <div class="card">
+            <h2>Sample Counter Page</h2>
+            <div class="counter-value" id="counter-display">0</div>
+            <div class="controls">
+                <button id="dec-btn">−</button>
+                <button id="inc-btn">+</button>
+            </div>
+            <div style="margin-top:1rem">
+                <button id="reset-btn">Reset</button>
+            </div>
+            <div class="items-section">
+                <h3>History</h3>
+                <ul id="item-list"></ul>
+            </div>
+        </div>
+    </main>
+    <script type="module" src="client.fs.js"></script>
+</body>
+</html>
