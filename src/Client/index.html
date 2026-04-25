@@ -35,27 +35,7 @@
     </style>
 </head>
 <body>
-    <header>
-        <img src="favicon.png" alt="logo" />
-        <h1>SafeAppMinimal</h1>
-    </header>
-    <main>
-        <div class="card">
-            <h2>Sample Counter Page</h2>
-            <div class="counter-value" id="counter-display">0</div>
-            <div class="controls">
-                <button id="dec-btn">−</button>
-                <button id="inc-btn">+</button>
-            </div>
-            <div style="margin-top:1rem">
-                <button id="reset-btn">Reset</button>
-            </div>
-            <div class="items-section">
-                <h3>History</h3>
-                <ul id="item-list"></ul>
-            </div>
-        </div>
-    </main>
-    <script type="module" src="client.fs.js"></script>
+    <div id="app"></div>
+    <script type="module" src="./Client.fs.js"></script>
 </body>
 </html>

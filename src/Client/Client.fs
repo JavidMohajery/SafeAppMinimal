@@ -1,29 +1,55 @@
 module Client
 
-open Browser
-open Browser.Types
+open Elmish
+open Elmish.React
+open Fable.React
+open Fable.React.Props
 
-let counter = document.getElementById "counter-display"
-let itemList = document.getElementById "item-list"
+type Model = { Count: int; History: string list }
 
-let mutable count = 0
+type Msg = Increment | Decrement | Reset
 
-let addHistoryEntry (label: string) =
-    let li = document.createElement "li"
-    li.textContent <- label
-    itemList.insertBefore(li, itemList.firstChild) |> ignore
+let init () = { Count = 0; History = [] }, Cmd.none
 
-let update delta =
-    count <- count + delta
-    counter.textContent <- string count
-    let sign = if delta > 0 then "+" else ""
-    addHistoryEntry $"{sign}{delta} → {count}"
+let update msg model =
+    match msg with
+    | Increment ->
+        let n = model.Count + 1
+        { model with Count = n; History = $"+1 → {n}" :: model.History }, Cmd.none
+    | Decrement ->
+        let n = model.Count - 1
+        { model with Count = n; History = $"-1 → {n}" :: model.History }, Cmd.none
+    | Reset ->
+        { Count = 0; History = [] }, Cmd.none
 
-let reset () =
-    count <- 0
-    counter.textContent <- "0"
-    itemList.innerHTML <- ""
+let view model dispatch =
+    div [] [
+        header [] [
+            img [ Src "favicon.png"; Alt "logo" ]
+            h1 [] [ str "SafeAppMinimal" ]
+        ]
+        main [] [
+            div [ ClassName "card" ] [
+                h2 [] [ str "Sample Counter Page" ]
+                div [ ClassName "counter-value" ] [ str (string model.Count) ]
+                div [ ClassName "controls" ] [
+                    button [ OnClick (fun _ -> dispatch Decrement) ] [ str "−" ]
+                    button [ OnClick (fun _ -> dispatch Increment) ] [ str "+" ]
+                ]
+                div [ Style [ MarginTop "1rem" ] ] [
+                    button [ Id "reset-btn"; OnClick (fun _ -> dispatch Reset) ] [ str "Reset" ]
+                ]
+                div [ ClassName "items-section" ] [
+                    h3 [] [ str "History" ]
+                    ul [ Id "item-list" ] [
+                        yield! model.History |> List.mapi (fun i e ->
+                            li [ Key (string i) ] [ str e ])
+                    ]
+                ]
+            ]
+        ]
+    ]
 
-(document.getElementById "inc-btn").addEventListener("click", fun _ -> update 1)
-(document.getElementById "dec-btn").addEventListener("click", fun _ -> update -1)
-(document.getElementById "reset-btn").addEventListener("click", fun _ -> reset ())
+Program.mkProgram init update view
+|> Program.withReactSynchronous "app"
+|> Program.run
