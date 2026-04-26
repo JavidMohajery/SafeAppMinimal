@@ -6,6 +6,10 @@
   </PropertyGroup>
   <ItemGroup>
     <None Include="index.html" />
+    <!-- Web Components (must precede Client.fs) -->
+    <Compile Include="WebComponents/Inputs/FuiButton.fs" />
+    <Compile Include="WebComponents/ComponentRegistry.fs" />
+    <!-- Existing pages -->
     <Compile Include="Pages/CounterElmish.fs" />
     <Compile Include="Pages/CounterDom.fs" />
     <Compile Include="Client.fs" />
@@ -18,6 +22,7 @@
     <PackageReference Include="Fable.Core" Version="3.7.1" />
     <PackageReference Include="Fable.Elmish" Version="4.4.0" />
     <PackageReference Include="Fable.Elmish.React" Version="4.0.0" />
+    <PackageReference Include="Fable.Lit" Version="1.4.2" />
     <PackageReference Include="Fable.React" Version="9.4.0" />
     <PackageReference Update="FSharp.Core" Version="8.0.100" />
   </ItemGroup>

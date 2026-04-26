@@ -6,11 +6,14 @@ open Elmish.React
 open Fable.React
 open Fable.React.Props
 
+// Register all Web Components with the browser before React starts rendering.
+do ComponentRegistry.registerAll()
+
 type Page = Home | CounterElmish | CounterDom
 
 type Model = {
-    Page: Page
-    ElmishCounter: Pages.CounterElmish.Model
+    Page          : Page
+    ElmishCounter : Pages.CounterElmish.Model
 }
 
 type Msg =
@@ -35,12 +38,19 @@ let update msg model =
         let m, cmd = Pages.CounterElmish.update sub model.ElmishCounter
         { model with ElmishCounter = m }, Cmd.map ElmishCounterMsg cmd
 
-// Elmish 4 subscription: starts a hashchange listener, returns IDisposable to stop it.
+// Elmish 4 subscription: hashchange listener.
 let hashSub (_model: Model) : Sub<Msg> =
     [ ["hash"], fun dispatch ->
         window.addEventListener("hashchange", fun _ ->
             dispatch (UrlChanged window.location.hash))
         { new System.IDisposable with member _.Dispose() = () } ]
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+/// Render a <fui-*> Web Component inside the React tree.
+/// attrs: list of (attribute-name, value) pairs.
+let wc (tag: string) (attrs: (string * string) list) (children: ReactElement list) : ReactElement =
+    domEl tag (attrs |> List.map (fun (k, v) -> HTMLAttr.Custom(k, box v))) children
 
 // ── Sidebar ───────────────────────────────────────────────────────────────────
 
@@ -62,6 +72,10 @@ let sidebar (model: Model) =
         nav [ ClassName "sidebar-nav" ] [
             div [ ClassName "sidebar-group" ] [
                 sidebarLink "Home" "#/" Home model.Page
+            ]
+            div [ ClassName "sidebar-group" ] [
+                div [ ClassName "sidebar-group-label" ] [ str "Inputs & Forms" ]
+                sidebarLink "Button" "#/component/inputs/button" Home model.Page
             ]
             div [ ClassName "sidebar-group" ] [
                 div [ ClassName "sidebar-group-label" ] [ str "Examples" ]
@@ -106,8 +120,29 @@ let homePage =
             str "Fable"
             span [ ClassName "hi" ] [ str "UI" ]
         ]
-        p [] [ str "A component showcase built with F#, Fable, and Elmish." ]
-        p [] [ str "Select an example from the sidebar to get started." ]
+        p [] [ str "A comprehensive reference of web UI components and backend patterns." ]
+        p [] [ str "Every component is a standalone Web Component — drop it into any HTML page." ]
+
+        div [ ClassName "component-preview" ] [
+            div [ ClassName "preview-header" ] [
+                span [ ClassName "preview-tag" ] [ str "fui-button" ]
+                span [ ClassName "preview-badge" ] [ str "Inputs & Forms" ]
+            ]
+            div [ ClassName "preview-body" ] [
+                div [ ClassName "preview-row" ] [
+                    wc "fui-button" [ "variant", "primary"   ] [ str "Save changes" ]
+                    wc "fui-button" [ "variant", "secondary" ] [ str "Cancel" ]
+                    wc "fui-button" [ "variant", "ghost"     ] [ str "Menu" ]
+                    wc "fui-button" [ "variant", "danger"    ] [ str "Delete" ]
+                    wc "fui-button" [ "variant", "primary"; "disabled", "" ] [ str "Disabled" ]
+                ]
+                div [ ClassName "preview-row"; Style [ MarginTop "0.75rem" ] ] [
+                    wc "fui-button" [ "variant", "primary"; "size", "sm" ] [ str "Small" ]
+                    wc "fui-button" [ "variant", "primary"; "size", "md" ] [ str "Medium" ]
+                    wc "fui-button" [ "variant", "primary"; "size", "lg" ] [ str "Large" ]
+                ]
+            ]
+        ]
     ]
 
 // ── Root view ─────────────────────────────────────────────────────────────────
