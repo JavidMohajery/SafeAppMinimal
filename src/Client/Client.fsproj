@@ -6,6 +6,8 @@
   </PropertyGroup>
   <ItemGroup>
     <None Include="index.html" />
+    <Compile Include="Pages/CounterElmish.fs" />
+    <Compile Include="Pages/CounterDom.fs" />
     <Compile Include="Client.fs" />
     <TypeScriptCompile Include="vite.config.mts" />
   </ItemGroup>
@@ -13,9 +15,10 @@
     <ProjectReference Include="..\Shared\Shared.fsproj" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Fable.Browser.DOM" Version="2.10.0" />
-    <PackageReference Include="Fable.Core" Version="3.7.0" />
-    <PackageReference Include="Fable.Fetch" Version="2.4.0" />
+    <PackageReference Include="Fable.Core" Version="3.7.1" />
+    <PackageReference Include="Fable.Elmish" Version="4.4.0" />
+    <PackageReference Include="Fable.Elmish.React" Version="4.0.0" />
+    <PackageReference Include="Fable.React" Version="9.4.0" />
     <PackageReference Update="FSharp.Core" Version="8.0.100" />
   </ItemGroup>
 </Project>

@@ -1,29 +1,66 @@
 module Client
 
-open Browser
-open Browser.Types
+open Elmish
+open Elmish.React
+open Fable.React
+open Fable.React.Props
 
-let counter = document.getElementById "counter-display"
-let itemList = document.getElementById "item-list"
+type Page = Home | CounterElmish | CounterDom
 
-let mutable count = 0
+type Model = {
+    Page: Page
+    ElmishCounter: Pages.CounterElmish.Model
+}
 
-let addHistoryEntry (label: string) =
-    let li = document.createElement "li"
-    li.textContent <- label
-    itemList.insertBefore(li, itemList.firstChild) |> ignore
+type Msg =
+    | GoTo of Page
+    | ElmishCounterMsg of Pages.CounterElmish.Msg
 
-let update delta =
-    count <- count + delta
-    counter.textContent <- string count
-    let sign = if delta > 0 then "+" else ""
-    addHistoryEntry $"{sign}{delta} → {count}"
+let init () =
+    let counter, _ = Pages.CounterElmish.init ()
+    { Page = Home; ElmishCounter = counter }, Cmd.none
 
-let reset () =
-    count <- 0
-    counter.textContent <- "0"
-    itemList.innerHTML <- ""
+let update msg model =
+    match msg with
+    | GoTo page -> { model with Page = page }, Cmd.none
+    | ElmishCounterMsg sub ->
+        let m, cmd = Pages.CounterElmish.update sub model.ElmishCounter
+        { model with ElmishCounter = m }, Cmd.map ElmishCounterMsg cmd
 
-(document.getElementById "inc-btn").addEventListener("click", fun _ -> update 1)
-(document.getElementById "dec-btn").addEventListener("click", fun _ -> update -1)
-(document.getElementById "reset-btn").addEventListener("click", fun _ -> reset ())
+let navLink label page currentPage dispatch =
+    a [
+        ClassName (if page = currentPage then "nav-link active" else "nav-link")
+        Href "#"
+        OnClick (fun e -> e.preventDefault(); dispatch (GoTo page))
+    ] [ str label ]
+
+let view model dispatch =
+    div [] [
+        header [] [
+            img [ Src "favicon.png"; Alt "logo" ]
+            h1 [] [ str "SafeAppMinimal" ]
+        ]
+        nav [] [
+            navLink "Home" Home model.Page dispatch
+            navLink "Counter — Elmish" CounterElmish model.Page dispatch
+            navLink "Counter — DOM" CounterDom model.Page dispatch
+        ]
+        main [] [
+            match model.Page with
+            | Home ->
+                div [ ClassName "card" ] [
+                    h2 [] [ str "Welcome" ]
+                    p [ Style [ MarginTop "1rem"; Color "#555" ] ] [
+                        str "Pick a counter implementation from the menu above."
+                    ]
+                ]
+            | CounterElmish ->
+                Pages.CounterElmish.view model.ElmishCounter (ElmishCounterMsg >> dispatch)
+            | CounterDom ->
+                Pages.CounterDom.view ()
+        ]
+    ]
+
+Program.mkProgram init update view
+|> Program.withReactSynchronous "app"
+|> Program.run
