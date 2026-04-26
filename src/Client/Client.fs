@@ -5,22 +5,34 @@ open Elmish.React
 open Fable.React
 open Fable.React.Props
 
-type Model = { Count: int; History: string list }
+type Page = Home | CounterElmish | CounterDom
 
-type Msg = Increment | Decrement | Reset
+type Model = {
+    Page: Page
+    ElmishCounter: Pages.CounterElmish.Model
+}
 
-let init () = { Count = 0; History = [] }, Cmd.none
+type Msg =
+    | GoTo of Page
+    | ElmishCounterMsg of Pages.CounterElmish.Msg
+
+let init () =
+    let counter, _ = Pages.CounterElmish.init ()
+    { Page = Home; ElmishCounter = counter }, Cmd.none
 
 let update msg model =
     match msg with
-    | Increment ->
-        let n = model.Count + 1
-        { model with Count = n; History = $"+1 → {n}" :: model.History }, Cmd.none
-    | Decrement ->
-        let n = model.Count - 1
-        { model with Count = n; History = $"-1 → {n}" :: model.History }, Cmd.none
-    | Reset ->
-        { Count = 0; History = [] }, Cmd.none
+    | GoTo page -> { model with Page = page }, Cmd.none
+    | ElmishCounterMsg sub ->
+        let m, cmd = Pages.CounterElmish.update sub model.ElmishCounter
+        { model with ElmishCounter = m }, Cmd.map ElmishCounterMsg cmd
+
+let navLink label page currentPage dispatch =
+    a [
+        ClassName (if page = currentPage then "nav-link active" else "nav-link")
+        Href "#"
+        OnClick (fun e -> e.preventDefault(); dispatch (GoTo page))
+    ] [ str label ]
 
 let view model dispatch =
     div [] [
@@ -28,25 +40,24 @@ let view model dispatch =
             img [ Src "favicon.png"; Alt "logo" ]
             h1 [] [ str "SafeAppMinimal" ]
         ]
+        nav [] [
+            navLink "Home" Home model.Page dispatch
+            navLink "Counter — Elmish" CounterElmish model.Page dispatch
+            navLink "Counter — DOM" CounterDom model.Page dispatch
+        ]
         main [] [
-            div [ ClassName "card" ] [
-                h2 [] [ str "Sample Counter Page" ]
-                div [ ClassName "counter-value" ] [ str (string model.Count) ]
-                div [ ClassName "controls" ] [
-                    button [ OnClick (fun _ -> dispatch Decrement) ] [ str "−" ]
-                    button [ OnClick (fun _ -> dispatch Increment) ] [ str "+" ]
-                ]
-                div [ Style [ MarginTop "1rem" ] ] [
-                    button [ Id "reset-btn"; OnClick (fun _ -> dispatch Reset) ] [ str "Reset" ]
-                ]
-                div [ ClassName "items-section" ] [
-                    h3 [] [ str "History" ]
-                    ul [ Id "item-list" ] [
-                        yield! model.History |> List.mapi (fun i e ->
-                            li [ Key (string i) ] [ str e ])
+            match model.Page with
+            | Home ->
+                div [ ClassName "card" ] [
+                    h2 [] [ str "Welcome" ]
+                    p [ Style [ MarginTop "1rem"; Color "#555" ] ] [
+                        str "Pick a counter implementation from the menu above."
                     ]
                 ]
-            ]
+            | CounterElmish ->
+                Pages.CounterElmish.view model.ElmishCounter (ElmishCounterMsg >> dispatch)
+            | CounterDom ->
+                Pages.CounterDom.view ()
         ]
     ]
 

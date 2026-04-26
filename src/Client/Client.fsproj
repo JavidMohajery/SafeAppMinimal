@@ -6,6 +6,8 @@
   </PropertyGroup>
   <ItemGroup>
     <None Include="index.html" />
+    <Compile Include="Pages/CounterElmish.fs" />
+    <Compile Include="Pages/CounterDom.fs" />
     <Compile Include="Client.fs" />
     <TypeScriptCompile Include="vite.config.mts" />
   </ItemGroup>

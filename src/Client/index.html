@@ -13,6 +13,11 @@
         header img { width: 32px; height: 32px; }
         header h1 { font-size: 1.25rem; font-weight: 600; }
 
+        nav { background: #1a4a35; padding: 0.5rem 2rem; display: flex; gap: 0.5rem; }
+        .nav-link { color: rgba(255,255,255,0.65); text-decoration: none; padding: 0.4rem 0.9rem; border-radius: 6px; font-size: 0.9rem; transition: background 0.15s, color 0.15s; }
+        .nav-link:hover { color: white; background: rgba(255,255,255,0.1); }
+        .nav-link.active { color: white; background: rgba(255,255,255,0.18); font-weight: 600; }
+
         main { max-width: 640px; margin: 3rem auto; padding: 0 1rem; }
 
         .card { background: white; border-radius: 12px; padding: 2rem; box-shadow: 0 2px 8px rgba(0,0,0,0.08); text-align: center; }
@@ -25,13 +30,13 @@
                  font-size: 1.5rem; cursor: pointer; color: #2d6a4f; transition: background 0.15s, color 0.15s; }
         button:hover { background: #2d6a4f; color: white; }
 
-        #reset-btn { width: auto; border-radius: 24px; padding: 0 1.25rem; font-size: 0.85rem; height: 36px; color: #888; border-color: #ccc; }
-        #reset-btn:hover { background: #eee; color: #333; }
+        .reset-btn { width: auto; border-radius: 24px; padding: 0 1.25rem; font-size: 0.85rem; height: 36px; color: #888; border-color: #ccc; }
+        .reset-btn:hover { background: #eee; color: #333; }
 
         .items-section { margin-top: 2rem; text-align: left; }
         .items-section h3 { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; color: #888; margin-bottom: 0.75rem; }
-        #item-list { list-style: none; }
-        #item-list li { padding: 0.5rem 0.75rem; border-radius: 6px; background: #f0faf4; margin-bottom: 0.4rem; font-size: 0.95rem; color: #2d6a4f; }
+        .items-section ul { list-style: none; }
+        .items-section ul li { padding: 0.5rem 0.75rem; border-radius: 6px; background: #f0faf4; margin-bottom: 0.4rem; font-size: 0.95rem; color: #2d6a4f; }
     </style>
 </head>
 <body>
