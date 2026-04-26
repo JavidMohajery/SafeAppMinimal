@@ -42,39 +42,88 @@ let hashSub (_model: Model) : Sub<Msg> =
             dispatch (UrlChanged window.location.hash))
         { new System.IDisposable with member _.Dispose() = () } ]
 
-let navLink (label: string) (href: string) (page: Page) (currentPage: Page) =
+// ── Sidebar ───────────────────────────────────────────────────────────────────
+
+let sidebarLink (label: string) (href: string) (page: Page) (currentPage: Page) =
     a [
-        ClassName (if page = currentPage then "nav-link active" else "nav-link")
+        ClassName (if page = currentPage then "sidebar-link active" else "sidebar-link")
         Href href
     ] [ str label ]
 
-let view model dispatch =
-    div [] [
-        header [] [
-            img [ Src "favicon.png"; Alt "logo" ]
-            h1 [] [ str "SafeAppMinimal" ]
+let sidebar (model: Model) =
+    aside [ ClassName "sidebar" ] [
+        div [ ClassName "sidebar-logo" ] [
+            img [ Src "/favicon.png"; Alt "logo" ]
+            span [] [
+                str "Fable"
+                span [ ClassName "logo-accent" ] [ str "UI" ]
+            ]
         ]
-        nav [] [
-            navLink "Home"             "#/"               Home          model.Page
-            navLink "Counter — Elmish" "#/counter-elmish" CounterElmish model.Page
-            navLink "Counter — DOM"    "#/counter-dom"    CounterDom    model.Page
+        nav [ ClassName "sidebar-nav" ] [
+            div [ ClassName "sidebar-group" ] [
+                sidebarLink "Home" "#/" Home model.Page
+            ]
+            div [ ClassName "sidebar-group" ] [
+                div [ ClassName "sidebar-group-label" ] [ str "Examples" ]
+                sidebarLink "Counter — Elmish" "#/counter-elmish" CounterElmish model.Page
+                sidebarLink "Counter — DOM"    "#/counter-dom"    CounterDom    model.Page
+            ]
         ]
-        main [] [
-            // Key forces React to unmount/remount the whole subtree on page change,
-            // preventing DOM counter children from persisting into the Elmish counter view.
-            div [ Key (string model.Page) ] [
-                match model.Page with
-                | Home ->
-                    div [ ClassName "card" ] [
-                        h2 [] [ str "Welcome" ]
-                        p [ Style [ MarginTop "1rem"; Color "#555" ] ] [
-                            str "Pick a counter implementation from the menu above."
-                        ]
-                    ]
-                | CounterElmish ->
-                    Pages.CounterElmish.view model.ElmishCounter (ElmishCounterMsg >> dispatch)
-                | CounterDom ->
-                    Pages.CounterDom.view ()
+    ]
+
+// ── Topbar ────────────────────────────────────────────────────────────────────
+
+let breadcrumbItems (page: Page) : (string * bool) list =
+    match page with
+    | Home          -> [ "Home", true ]
+    | CounterElmish -> [ "Home", false; "Examples", false; "Counter — Elmish", true ]
+    | CounterDom    -> [ "Home", false; "Examples", false; "Counter — DOM", true ]
+
+let topbar (model: Model) =
+    let crumbs = breadcrumbItems model.Page
+    header [ ClassName "topbar" ] [
+        div [ ClassName "breadcrumb" ] [
+            yield!
+                crumbs
+                |> List.mapi (fun i (label, isActive) ->
+                    [
+                        if i > 0 then
+                            yield span [ ClassName "breadcrumb-sep"; Key $"sep-{i}" ] [ str "/" ]
+                        yield span [ Key (string i); ClassName (if isActive then "breadcrumb-active" else "") ] [ str label ]
+                    ])
+                |> List.concat
+        ]
+        div [ ClassName "topbar-actions" ] [
+            a [ ClassName "icon-btn"; Href "https://github.com/safe-stack/SAFE-template"; Title "GitHub" ] [ str "GH" ]
+        ]
+    ]
+
+// ── Pages ─────────────────────────────────────────────────────────────────────
+
+let homePage =
+    div [ ClassName "home-welcome" ] [
+        h1 [] [
+            str "Fable"
+            span [ ClassName "hi" ] [ str "UI" ]
+        ]
+        p [] [ str "A component showcase built with F#, Fable, and Elmish." ]
+        p [] [ str "Select an example from the sidebar to get started." ]
+    ]
+
+// ── Root view ─────────────────────────────────────────────────────────────────
+
+let view (model: Model) (dispatch: Msg -> unit) =
+    div [ ClassName "shell" ] [
+        sidebar model
+        div [ ClassName "shell-main" ] [
+            topbar model
+            main [ ClassName "page-content" ] [
+                div [ Key (string model.Page) ] (
+                    match model.Page with
+                    | Home          -> [ homePage ]
+                    | CounterElmish -> [ Pages.CounterElmish.view model.ElmishCounter (ElmishCounterMsg >> dispatch) ]
+                    | CounterDom    -> [ Pages.CounterDom.view () ]
+                )
             ]
         ]
     ]
