@@ -17,6 +17,19 @@
     <Compile Include="WebComponents/Inputs/FuiSlider.fs" />
     <Compile Include="WebComponents/Inputs/FuiDatePicker.fs" />
     <Compile Include="WebComponents/Inputs/FuiColorPicker.fs" />
+    <Compile Include="WebComponents/Inputs/FuiFileUpload.fs" />
+    <Compile Include="WebComponents/Layout/FuiDivider.fs" />
+    <Compile Include="WebComponents/Layout/FuiStack.fs" />
+    <Compile Include="WebComponents/Layout/FuiScrollArea.fs" />
+    <Compile Include="WebComponents/Layout/FuiContainer.fs" />
+    <Compile Include="WebComponents/Layout/FuiGrid.fs" />
+    <Compile Include="WebComponents/Layout/FuiSpacer.fs" />
+    <Compile Include="WebComponents/Layout/FuiAspectRatio.fs" />
+    <Compile Include="WebComponents/Navigation/FuiTabs.fs" />
+    <Compile Include="WebComponents/Navigation/FuiBreadcrumb.fs" />
+    <Compile Include="WebComponents/Navigation/FuiPagination.fs" />
+    <Compile Include="WebComponents/Navigation/FuiStepper.fs" />
+    <Compile Include="WebComponents/Navigation/FuiMenu.fs" />
     <Compile Include="WebComponents/ComponentRegistry.fs" />
     <!-- Existing pages -->
     <Compile Include="Pages/CounterElmish.fs" />

@@ -423,6 +423,408 @@ let all : ComponentMeta list = [
 <fui-color-picker label="Disabled" value="#22C55E" disabled></fui-color-picker>
 <fui-color-picker label="With error" error="A colour is required"></fui-color-picker>"""
     }
+    {
+        Tag         = "fui-file-upload"
+        Name        = "FileUpload"
+        Slug        = "file-upload"
+        Category    = "Inputs & Forms"
+        Description = "Drag-and-drop file upload zone. Click to open the system file picker or drop files onto the zone. Selected file names are listed below the zone. Supports accept filter, multiple selection, disabled state, and sm/md/lg sizes."
+        Attributes  = [
+            { Name="label";    Type="string";  Default="";     Description="Visible label rendered above the dropzone" }
+            { Name="accept";   Type="string";  Default="";     Description="Accepted file types — passed to the native input (e.g. image/* or .pdf,.docx)" }
+            { Name="multiple"; Type="boolean"; Default="false"; Description="Allows selecting more than one file at a time" }
+            { Name="disabled"; Type="boolean"; Default="false"; Description="Disables the zone — non-interactive, reduced opacity" }
+            { Name="name";     Type="string";  Default="";     Description="Form field name for native form submission" }
+            { Name="error";    Type="string";  Default="";     Description="Error message shown below the file list" }
+            { Name="size";     Type="string";  Default="md";   Description="sm | md | lg" }
+        ]
+        CssProps = [
+            { Name="--fui-fu-bg";           Description="Dropzone background (idle)" }
+            { Name="--fui-fu-bg-active";    Description="Dropzone background while dragging over" }
+            { Name="--fui-fu-border";       Description="Dashed border color (idle)" }
+            { Name="--fui-fu-border-hover"; Description="Border color on hover" }
+            { Name="--fui-fu-border-active";Description="Border color while dragging over" }
+            { Name="--fui-fu-icon-color";   Description="Upload arrow icon color" }
+            { Name="--fui-fu-text-color";   Description="Primary dropzone text color" }
+            { Name="--fui-fu-accent";       Description="'Click to browse' link color" }
+            { Name="--fui-fu-hint-color";   Description="Accept hint text color" }
+            { Name="--fui-fu-file-bg";      Description="File pill background" }
+            { Name="--fui-fu-file-color";   Description="File pill text color" }
+            { Name="--fui-fu-label-color";  Description="Label text color" }
+            { Name="--fui-fu-radius";       Description="Dropzone border radius" }
+            { Name="--fui-fu-font";         Description="Font family" }
+        ]
+        Events = [
+            { Name="fui-change"; Description="Fired after file selection or drop — detail: { files: string[], count: number }" }
+        ]
+        HtmlUsage = """<fui-file-upload label="Attachment"></fui-file-upload>
+<fui-file-upload label="Images only" accept="image/*" multiple></fui-file-upload>
+<fui-file-upload label="Documents" accept=".pdf,.docx,.xlsx"></fui-file-upload>
+<fui-file-upload label="Disabled" disabled></fui-file-upload>
+<fui-file-upload label="With error" error="Please upload a file"></fui-file-upload>"""
+    }
+    // ── Navigation ────────────────────────────────────────────────────────────
+    {
+        Tag         = "fui-tabs"
+        Name        = "Tabs"
+        Slug        = "tabs"
+        Category    = "Navigation"
+        Description = "Tabbed panel switcher. Tab labels are supplied via a JSON array; panel content is projected through named slots (`slot=\"tab-{value}\"`). Fires fui-change when the active tab changes."
+        Attributes  = [
+            { Name="tabs";   Type="string"; Default="[]"; Description="JSON array of {value, label} objects defining the tab bar" }
+            { Name="active"; Type="string"; Default="";   Description="Value of the initially-selected tab (defaults to the first tab)" }
+        ]
+        CssProps = [
+            { Name="--fui-tabs-border";         Description="Bottom border colour of the tab bar" }
+            { Name="--fui-tabs-color";          Description="Inactive tab label colour" }
+            { Name="--fui-tabs-color-hover";    Description="Tab label colour on hover" }
+            { Name="--fui-tabs-active-color";   Description="Active tab label colour" }
+            { Name="--fui-tabs-accent";         Description="Active tab indicator and focus ring colour" }
+            { Name="--fui-tabs-panel-padding";  Description="Padding applied to the content area below the tab bar" }
+            { Name="--fui-tabs-font";           Description="Font family" }
+        ]
+        Events = [
+            { Name="fui-change"; Description="Fired when the active tab changes — detail: { value: string }" }
+        ]
+        HtmlUsage = """<fui-tabs tabs='[{"value":"a","label":"Overview"},{"value":"b","label":"Settings"},{"value":"c","label":"Logs"}]'>
+  <div slot="tab-a"><p>Overview content goes here.</p></div>
+  <div slot="tab-b"><p>Settings panel.</p></div>
+  <div slot="tab-c"><p>Log output.</p></div>
+</fui-tabs>"""
+    }
+    {
+        Tag         = "fui-breadcrumb"
+        Name        = "Breadcrumb"
+        Slug        = "breadcrumb"
+        Category    = "Navigation"
+        Description = "Horizontal trail of navigation links showing the current page's location. Items are supplied as a JSON array; the last item is rendered as the current page (no link, aria-current)."
+        Attributes  = [
+            { Name="items";     Type="string"; Default="[]"; Description="JSON array of {label, href} objects — omit href on the last (current) item" }
+            { Name="separator"; Type="string"; Default="/";  Description="Text or character rendered between items" }
+        ]
+        CssProps = [
+            { Name="--fui-bc-link-color";    Description="Colour of non-current links" }
+            { Name="--fui-bc-link-hover";    Description="Link colour on hover" }
+            { Name="--fui-bc-current-color"; Description="Colour of the current page item" }
+            { Name="--fui-bc-sep-color";     Description="Separator colour" }
+            { Name="--fui-bc-accent";        Description="Focus ring colour" }
+            { Name="--fui-bc-font";          Description="Font family" }
+        ]
+        Events = []
+        HtmlUsage = """<fui-breadcrumb
+  items='[{"label":"Home","href":"/"},{"label":"Components","href":"/components"},{"label":"Breadcrumb","href":""}]'>
+</fui-breadcrumb>
+
+<!-- Custom separator -->
+<fui-breadcrumb separator="›"
+  items='[{"label":"Docs","href":"/docs"},{"label":"API","href":""}]'>
+</fui-breadcrumb>"""
+    }
+    {
+        Tag         = "fui-pagination"
+        Name        = "Pagination"
+        Slug        = "pagination"
+        Category    = "Navigation"
+        Description = "Page navigation control showing prev/next arrows and numbered page buttons with ellipsis gaps. Fires fui-change on every page change."
+        Attributes  = [
+            { Name="total";    Type="number"; Default="1"; Description="Total number of pages" }
+            { Name="page";     Type="number"; Default="1"; Description="Initially-selected page number (1-indexed)" }
+            { Name="siblings"; Type="number"; Default="1"; Description="Number of page buttons shown on each side of the current page" }
+        ]
+        CssProps = [
+            { Name="--fui-pg-bg";           Description="Button background (idle)" }
+            { Name="--fui-pg-border";       Description="Button border colour (idle)" }
+            { Name="--fui-pg-color";        Description="Button text colour (idle)" }
+            { Name="--fui-pg-bg-hover";     Description="Button background on hover" }
+            { Name="--fui-pg-border-hover"; Description="Button border colour on hover" }
+            { Name="--fui-pg-color-hover";  Description="Button text colour on hover" }
+            { Name="--fui-pg-accent";       Description="Active page background and focus ring colour" }
+            { Name="--fui-pg-muted";        Description="Ellipsis colour" }
+            { Name="--fui-pg-radius";       Description="Button border radius" }
+            { Name="--fui-pg-font";         Description="Font family" }
+        ]
+        Events = [
+            { Name="fui-change"; Description="Fired on page change — detail: { page: number }" }
+        ]
+        HtmlUsage = """<fui-pagination total="10" page="1"></fui-pagination>
+<fui-pagination total="50" page="25" siblings="2"></fui-pagination>"""
+    }
+    {
+        Tag         = "fui-stepper"
+        Name        = "Stepper"
+        Slug        = "stepper"
+        Category    = "Navigation"
+        Description = "Step-progress indicator for multi-step workflows. Steps are supplied as a JSON array. Completed steps show a checkmark; the active step is highlighted in accent. Supports horizontal and vertical orientations."
+        Attributes  = [
+            { Name="steps";       Type="string";  Default="[]";        Description="JSON array of {label, description} objects — description is optional" }
+            { Name="active";      Type="number";  Default="0";         Description="0-indexed index of the currently active step" }
+            { Name="orientation"; Type="string";  Default="horizontal"; Description="horizontal | vertical" }
+            { Name="clickable";   Type="boolean"; Default="false";     Description="When true, clicking a step fires fui-change and updates the active step" }
+        ]
+        CssProps = [
+            { Name="--fui-st-accent";       Description="Accent colour for active and completed steps" }
+            { Name="--fui-st-circle-bg";    Description="Circle background for pending steps" }
+            { Name="--fui-st-border";       Description="Circle border colour for pending steps" }
+            { Name="--fui-st-num-color";    Description="Step number text colour" }
+            { Name="--fui-st-connector";    Description="Connector line colour (pending)" }
+            { Name="--fui-st-label-color";  Description="Step label colour (pending)" }
+            { Name="--fui-st-label-active"; Description="Step label colour (active / done)" }
+            { Name="--fui-st-desc-color";   Description="Step description text colour" }
+            { Name="--fui-st-font";         Description="Font family" }
+        ]
+        Events = [
+            { Name="fui-change"; Description="Fired when a clickable step is selected — detail: { step: number }" }
+        ]
+        HtmlUsage = """<fui-stepper
+  active="1"
+  steps='[{"label":"Account","description":"Create your account"},{"label":"Profile","description":"Fill in your details"},{"label":"Review","description":"Confirm and submit"}]'>
+</fui-stepper>
+
+<!-- Vertical, clickable -->
+<fui-stepper
+  orientation="vertical"
+  clickable
+  active="0"
+  steps='[{"label":"Plan","description":""},{"label":"Build","description":""},{"label":"Deploy","description":""}]'>
+</fui-stepper>"""
+    }
+    {
+        Tag         = "fui-menu"
+        Name        = "Menu"
+        Slug        = "menu"
+        Category    = "Navigation"
+        Description = "Dropdown menu triggered by a button. Items are supplied as a JSON array supporting labels, disabled items, and separator rules. Closes on outside click. Fires fui-select when an item is chosen."
+        Attributes  = [
+            { Name="label";     Type="string"; Default="Menu";         Description="Text shown on the trigger button" }
+            { Name="items";     Type="string"; Default="[]";           Description="JSON array of {value, label, disabled?, separator?} objects — set separator:true for a divider rule" }
+            { Name="placement"; Type="string"; Default="bottom-start"; Description="bottom-start | bottom-end | top-start | top-end" }
+        ]
+        CssProps = [
+            { Name="--fui-menu-trigger-bg";          Description="Trigger button background" }
+            { Name="--fui-menu-trigger-border";      Description="Trigger button border colour" }
+            { Name="--fui-menu-trigger-color";       Description="Trigger button text colour" }
+            { Name="--fui-menu-trigger-bg-hover";    Description="Trigger background on hover" }
+            { Name="--fui-menu-trigger-border-hover";Description="Trigger border colour on hover" }
+            { Name="--fui-menu-bg";                  Description="Dropdown panel background" }
+            { Name="--fui-menu-border";              Description="Dropdown panel border colour" }
+            { Name="--fui-menu-item-color";          Description="Menu item text colour" }
+            { Name="--fui-menu-item-bg-hover";       Description="Menu item background on hover" }
+            { Name="--fui-menu-disabled-color";      Description="Disabled item text colour" }
+            { Name="--fui-menu-sep-color";           Description="Separator line colour" }
+            { Name="--fui-menu-accent";              Description="Hover text accent and focus ring colour" }
+            { Name="--fui-menu-radius";              Description="Border radius for trigger and panel" }
+            { Name="--fui-menu-font";                Description="Font family" }
+        ]
+        Events = [
+            { Name="fui-select"; Description="Fired when a menu item is clicked — detail: { value: string }" }
+        ]
+        HtmlUsage = """<fui-menu label="Actions" items='[
+  {"value":"edit",   "label":"Edit"},
+  {"value":"dup",    "label":"Duplicate"},
+  {"value":"",       "label":"",       "separator":true},
+  {"value":"delete", "label":"Delete", "disabled":false}
+]'></fui-menu>
+
+<fui-menu label="Options" placement="bottom-end" items='[
+  {"value":"profile", "label":"Profile"},
+  {"value":"settings","label":"Settings"},
+  {"value":"",        "label":"",         "separator":true},
+  {"value":"logout",  "label":"Sign out"}
+]'></fui-menu>"""
+    }
+    // ── Layout ────────────────────────────────────────────────────────────────
+    {
+        Tag         = "fui-divider"
+        Name        = "Divider"
+        Slug        = "divider"
+        Category    = "Layout"
+        Description = "Horizontal or vertical separator rule with an optional centred text label. Thickness and colour are fully themeable via CSS custom properties."
+        Attributes  = [
+            { Name="label";       Type="string"; Default="";           Description="Optional text label displayed in the centre of the rule" }
+            { Name="orientation"; Type="string"; Default="horizontal"; Description="horizontal | vertical" }
+        ]
+        CssProps = [
+            { Name="--fui-divider-color";       Description="Rule colour" }
+            { Name="--fui-divider-thickness";   Description="Rule thickness (default 1px)" }
+            { Name="--fui-divider-label-color"; Description="Label text colour" }
+            { Name="--fui-divider-font";        Description="Font family for the label" }
+        ]
+        Events   = []
+        HtmlUsage = """<fui-divider></fui-divider>
+<fui-divider label="or"></fui-divider>
+<fui-divider label="Section title"></fui-divider>
+
+<!-- Vertical — works inside a fixed-height flex container -->
+<div style="display:flex;height:48px;gap:1rem;align-items:center">
+  <span>Left</span>
+  <fui-divider orientation="vertical"></fui-divider>
+  <span>Right</span>
+</div>"""
+    }
+    {
+        Tag         = "fui-stack"
+        Name        = "Stack"
+        Slug        = "stack"
+        Category    = "Layout"
+        Description = "Thin flexbox wrapper that arranges slotted children in a row or column with configurable gap, alignment, and wrapping. Zero markup overhead — the slot projects children directly."
+        Attributes  = [
+            { Name="direction"; Type="string";  Default="column";     Description="row | column" }
+            { Name="gap";       Type="string";  Default="1rem";       Description="Any CSS gap value — e.g. 0.5rem or 8px" }
+            { Name="align";     Type="string";  Default="stretch";    Description="CSS align-items value" }
+            { Name="justify";   Type="string";  Default="flex-start"; Description="CSS justify-content value" }
+            { Name="wrap";      Type="boolean"; Default="false";      Description="Enables flex-wrap: wrap" }
+        ]
+        CssProps = []
+        Events   = []
+        HtmlUsage = """<!-- Row of buttons -->
+<fui-stack direction="row" gap="0.75rem">
+  <fui-button variant="primary">Save</fui-button>
+  <fui-button variant="secondary">Cancel</fui-button>
+</fui-stack>
+
+<!-- Centred column -->
+<fui-stack direction="column" gap="1rem" align="center">
+  <fui-input label="Email"></fui-input>
+  <fui-input label="Password" type="password"></fui-input>
+  <fui-button variant="primary">Sign in</fui-button>
+</fui-stack>"""
+    }
+    {
+        Tag         = "fui-scroll-area"
+        Name        = "ScrollArea"
+        Slug        = "scroll-area"
+        Category    = "Layout"
+        Description = "Scrollable container with a slim, accent-coloured custom scrollbar. Set height or max-height via attributes; overflow direction is configurable."
+        Attributes  = [
+            { Name="height";     Type="string"; Default="";         Description="CSS height applied to the scroll viewport (e.g. 300px)" }
+            { Name="max-height"; Type="string"; Default="";         Description="CSS max-height applied to the scroll viewport" }
+            { Name="direction";  Type="string"; Default="vertical"; Description="vertical | horizontal | both" }
+        ]
+        CssProps = [
+            { Name="--fui-sa-track";      Description="Scrollbar track background" }
+            { Name="--fui-sa-thumb";      Description="Scrollbar thumb colour (idle)" }
+            { Name="--fui-sa-thumb-hover";Description="Scrollbar thumb colour on hover" }
+        ]
+        Events   = []
+        HtmlUsage = """<fui-scroll-area height="240px" direction="vertical">
+  <ul style="margin:0;padding:0 0 0 1.25rem">
+    <li>Item 1</li>
+    <li>Item 2</li>
+    <!-- ... -->
+  </ul>
+</fui-scroll-area>"""
+    }
+    {
+        Tag         = "fui-container"
+        Name        = "Container"
+        Slug        = "container"
+        Category    = "Layout"
+        Description = "Max-width centred wrapper that constrains content width and applies horizontal padding. The primary page-level layout primitive."
+        Attributes  = [
+            { Name="max-width"; Type="string"; Default=""; Description="Override max-width (e.g. 800px) — falls back to --fui-container-max-width" }
+            { Name="padding";   Type="string"; Default=""; Description="Override horizontal padding (e.g. 1.5rem) — falls back to --fui-container-px" }
+        ]
+        CssProps = [
+            { Name="--fui-container-max-width"; Description="Maximum content width (default 1100px)" }
+            { Name="--fui-container-px";        Description="Horizontal padding applied to both sides (default 2.5rem)" }
+        ]
+        Events   = []
+        HtmlUsage = """<fui-container>
+  <p>Content centred at 1100px max-width with 2.5rem padding.</p>
+</fui-container>
+
+<!-- Narrow reading column -->
+<fui-container max-width="680px" padding="1.5rem">
+  <p>Article body text — comfortable reading width.</p>
+</fui-container>"""
+    }
+    {
+        Tag         = "fui-grid"
+        Name        = "Grid"
+        Slug        = "grid"
+        Category    = "Layout"
+        Description = "Thin CSS Grid wrapper. Pass a column count (auto-generates repeat(n, 1fr)) or any grid-template-columns expression. Row and column gap are independently configurable."
+        Attributes  = [
+            { Name="cols";    Type="string"; Default="2";    Description="Column count (generates repeat(n, 1fr)) or any CSS grid-template-columns value — e.g. 3, 2fr 1fr, repeat(auto-fill, minmax(200px, 1fr))" }
+            { Name="gap";     Type="string"; Default="1rem"; Description="Gap applied to both axes when row-gap and col-gap are not set" }
+            { Name="row-gap"; Type="string"; Default="";     Description="Row gap — overrides gap for rows only" }
+            { Name="col-gap"; Type="string"; Default="";     Description="Column gap — overrides gap for columns only" }
+        ]
+        CssProps = []
+        Events   = []
+        HtmlUsage = """<!-- 3-column equal grid -->
+<fui-grid cols="3" gap="1rem">
+  <div>A</div><div>B</div><div>C</div>
+</fui-grid>
+
+<!-- Main + sidebar layout -->
+<fui-grid cols="2fr 1fr" gap="1.5rem">
+  <div>Main content</div>
+  <div>Sidebar</div>
+</fui-grid>
+
+<!-- Responsive auto-fill -->
+<fui-grid cols="repeat(auto-fill, minmax(200px, 1fr))" gap="1rem">
+  <div>Card</div><div>Card</div><div>Card</div>
+</fui-grid>"""
+    }
+    {
+        Tag         = "fui-spacer"
+        Name        = "Spacer"
+        Slug        = "spacer"
+        Category    = "Layout"
+        Description = "Flexible whitespace element that expands to fill available space in a flex or grid container. Without a size attribute it behaves as flex: 1 1 auto, pushing siblings apart."
+        Attributes  = [
+            { Name="size"; Type="string"; Default=""; Description="Fixed minimum size (e.g. 1rem or 24px). Omit for a fully flexible spacer." }
+        ]
+        CssProps = []
+        Events   = []
+        HtmlUsage = """<!-- Push action buttons to opposite ends of a toolbar -->
+<fui-stack direction="row">
+  <fui-button variant="ghost">← Back</fui-button>
+  <fui-spacer></fui-spacer>
+  <fui-button variant="primary">Next →</fui-button>
+</fui-stack>
+
+<!-- Fixed gap between two items -->
+<fui-stack direction="row">
+  <span>Label</span>
+  <fui-spacer size="2rem"></fui-spacer>
+  <span>Value</span>
+</fui-stack>"""
+    }
+    {
+        Tag         = "fui-aspect-ratio"
+        Name        = "AspectRatio"
+        Slug        = "aspect-ratio"
+        Category    = "Layout"
+        Description = "Constrains slotted content to a fixed aspect ratio using the CSS aspect-ratio property. Common values: 16/9 (video), 4/3 (traditional), 1/1 (square), 2/1 (wide banner)."
+        Attributes  = [
+            { Name="ratio"; Type="string"; Default="16/9"; Description="CSS aspect-ratio value — e.g. 16/9, 4/3, 1/1, 2/1, 3/2" }
+        ]
+        CssProps = [
+            { Name="--fui-ar-bg"; Description="Background colour of the aspect-ratio box (default transparent)" }
+        ]
+        Events   = []
+        HtmlUsage = """<!-- 16:9 video thumbnail -->
+<fui-aspect-ratio ratio="16/9">
+  <img src="thumbnail.jpg" style="width:100%;height:100%;object-fit:cover" alt="Video thumbnail" />
+</fui-aspect-ratio>
+
+<!-- Square avatar crop -->
+<div style="width:96px">
+  <fui-aspect-ratio ratio="1/1">
+    <img src="avatar.jpg" style="width:100%;height:100%;object-fit:cover;border-radius:50%" alt="Avatar" />
+  </fui-aspect-ratio>
+</div>
+
+<!-- Wide banner placeholder -->
+<fui-aspect-ratio ratio="3/1" style="--fui-ar-bg:#1E1E21">
+  <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center">
+    Banner content
+  </div>
+</fui-aspect-ratio>"""
+    }
 ]
 
 // ── Lookup helpers ────────────────────────────────────────────────────────────
@@ -451,3 +853,16 @@ let registerAll () =
     WebComponents.FuiSlider.register ()
     WebComponents.FuiDatePicker.register ()
     WebComponents.FuiColorPicker.register ()
+    WebComponents.FuiFileUpload.register ()
+    WebComponents.FuiDivider.register ()
+    WebComponents.FuiStack.register ()
+    WebComponents.FuiScrollArea.register ()
+    WebComponents.FuiContainer.register ()
+    WebComponents.FuiGrid.register ()
+    WebComponents.FuiSpacer.register ()
+    WebComponents.FuiAspectRatio.register ()
+    WebComponents.FuiTabs.register ()
+    WebComponents.FuiBreadcrumb.register ()
+    WebComponents.FuiPagination.register ()
+    WebComponents.FuiStepper.register ()
+    WebComponents.FuiMenu.register ()
