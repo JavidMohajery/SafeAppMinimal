@@ -88,6 +88,10 @@ let sidebar (model: Model) =
                 sidebarLink "Checkbox"    "#/component/inputs/checkbox"    model.Hash
                 sidebarLink "Radio"      "#/component/inputs/radio"       model.Hash
                 sidebarLink "RadioGroup" "#/component/inputs/radio-group" model.Hash
+                sidebarLink "Toggle"    "#/component/inputs/toggle"      model.Hash
+                sidebarLink "Slider"      "#/component/inputs/slider"       model.Hash
+                sidebarLink "DatePicker"   "#/component/inputs/date-picker"   model.Hash
+                sidebarLink "ColorPicker" "#/component/inputs/color-picker" model.Hash
             ]
             div [ ClassName "sidebar-group" ] [
                 div [ ClassName "sidebar-group-label" ] [ str "Examples" ]
@@ -234,6 +238,65 @@ let homePage =
                 ]
             ]
         ]
+
+        div [ ClassName "component-preview" ] [
+            div [ ClassName "preview-header" ] [
+                span [ ClassName "preview-tag" ] [ str "fui-toggle" ]
+                span [ ClassName "preview-badge" ] [ str "Inputs & Forms" ]
+            ]
+            div [ ClassName "preview-body" ] [
+                div [ Style [ Display DisplayOptions.Flex; FlexDirection "column"; CSSProp.Custom("gap", "0.75rem") ] ] [
+                    wc "fui-toggle" [ "label", "Enable notifications" ] []
+                    wc "fui-toggle" [ "label", "Dark mode"; "checked", "" ] []
+                    wc "fui-toggle" [ "label", "Disabled"; "disabled", "" ] []
+                    wc "fui-toggle" [ "label", "With error"; "error", "This setting is required" ] []
+                ]
+            ]
+        ]
+
+        div [ ClassName "component-preview" ] [
+            div [ ClassName "preview-header" ] [
+                span [ ClassName "preview-tag" ] [ str "fui-slider" ]
+                span [ ClassName "preview-badge" ] [ str "Inputs & Forms" ]
+            ]
+            div [ ClassName "preview-body" ] [
+                div [ Style [ Display DisplayOptions.Flex; FlexDirection "column"; CSSProp.Custom("gap", "1rem") ] ] [
+                    wc "fui-slider" [ "label", "Volume";   "value", "40" ] []
+                    wc "fui-slider" [ "label", "Price";    "min", "100"; "max", "1000"; "step", "50"; "value", "400" ] []
+                    wc "fui-slider" [ "label", "Disabled"; "value", "60"; "disabled", "" ] []
+                ]
+            ]
+        ]
+
+        div [ ClassName "component-preview" ] [
+            div [ ClassName "preview-header" ] [
+                span [ ClassName "preview-tag" ] [ str "fui-date-picker" ]
+                span [ ClassName "preview-badge" ] [ str "Inputs & Forms" ]
+            ]
+            div [ ClassName "preview-body" ] [
+                div [ Style [ Display DisplayOptions.Flex; FlexDirection "column"; CSSProp.Custom("gap", "0.75rem") ] ] [
+                    wc "fui-date-picker" [ "label", "Date of birth" ] []
+                    wc "fui-date-picker" [ "label", "Check-in"; "value", "2025-06-01"; "min", "2025-01-01"; "max", "2025-12-31" ] []
+                    wc "fui-date-picker" [ "label", "Disabled"; "value", "2025-03-15"; "disabled", "" ] []
+                    wc "fui-date-picker" [ "label", "With error"; "error", "Please select a valid date" ] []
+                ]
+            ]
+        ]
+
+        div [ ClassName "component-preview" ] [
+            div [ ClassName "preview-header" ] [
+                span [ ClassName "preview-tag" ] [ str "fui-color-picker" ]
+                span [ ClassName "preview-badge" ] [ str "Inputs & Forms" ]
+            ]
+            div [ ClassName "preview-body" ] [
+                div [ Style [ Display DisplayOptions.Flex; FlexDirection "column"; CSSProp.Custom("gap", "0.75rem") ] ] [
+                    wc "fui-color-picker" [ "label", "Brand colour"; "value", "#7C3AED" ] []
+                    wc "fui-color-picker" [ "label", "Accent";       "value", "#3B82F6" ] []
+                    wc "fui-color-picker" [ "label", "Disabled";     "value", "#22C55E"; "disabled", "" ] []
+                    wc "fui-color-picker" [ "label", "With error";   "error", "A colour is required" ] []
+                ]
+            ]
+        ]
     ]
 
 // ── Component detail page ─────────────────────────────────────────────────────
@@ -304,6 +367,58 @@ let componentLivePreview (slug: string) : ReactElement list =
             wc "fui-radio-group" [ "label", "Preselected"; "name", "rg2"; "value", "vue"; "options", rgOpts ] []
             wc "fui-radio-group" [ "label", "Disabled";    "name", "rg3"; "disabled", ""; "value", "react"; "options", rgOpts ] []
             wc "fui-radio-group" [ "label", "With error";  "name", "rg4"; "error", "Please select an option"; "options", sizeOpts ] []
+        ] ]
+    | "toggle" ->
+        [ div [ Style [ Display DisplayOptions.Flex; FlexDirection "column"; CSSProp.Custom("gap", "0.75rem") ] ] [
+            wc "fui-toggle" [ "label", "Enable notifications" ] []
+            wc "fui-toggle" [ "label", "Dark mode"; "checked", "" ] []
+            wc "fui-toggle" [ "label", "Disabled off"; "disabled", "" ] []
+            wc "fui-toggle" [ "label", "Disabled on"; "checked", ""; "disabled", "" ] []
+            wc "fui-toggle" [ "label", "With error"; "error", "This setting is required" ] []
+            div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("gap", "1rem"); CSSProp.Custom("align-items", "center") ] ] [
+                wc "fui-toggle" [ "label", "Small"; "size", "sm"; "checked", "" ] []
+                wc "fui-toggle" [ "label", "Medium"; "checked", "" ] []
+                wc "fui-toggle" [ "label", "Large"; "size", "lg"; "checked", "" ] []
+            ]
+        ] ]
+    | "slider" ->
+        [ div [ Style [ Display DisplayOptions.Flex; FlexDirection "column"; CSSProp.Custom("gap", "1.25rem") ] ] [
+            wc "fui-slider" [ "label", "Volume";       "value", "40" ] []
+            wc "fui-slider" [ "label", "Price range";  "min", "100"; "max", "1000"; "step", "50"; "value", "400" ] []
+            wc "fui-slider" [ "label", "Opacity";      "min", "0"; "max", "1"; "step", "0.01"; "value", "0.75" ] []
+            wc "fui-slider" [ "label", "Disabled";     "value", "60"; "disabled", "" ] []
+            wc "fui-slider" [ "label", "With error";   "value", "0"; "error", "Value must be greater than 0" ] []
+            div [ Style [ Display DisplayOptions.Flex; FlexDirection "column"; CSSProp.Custom("gap", "0.75rem") ] ] [
+                wc "fui-slider" [ "label", "Small";  "size", "sm"; "value", "30" ] []
+                wc "fui-slider" [ "label", "Medium"; "value", "50" ] []
+                wc "fui-slider" [ "label", "Large";  "size", "lg"; "value", "70" ] []
+            ]
+        ] ]
+    | "date-picker" ->
+        [ div [ Style [ Display DisplayOptions.Flex; FlexDirection "column"; CSSProp.Custom("gap", "0.75rem") ] ] [
+            wc "fui-date-picker" [ "label", "Date of birth" ] []
+            wc "fui-date-picker" [ "label", "Check-in"; "value", "2025-06-01"; "min", "2025-01-01"; "max", "2025-12-31" ] []
+            wc "fui-date-picker" [ "label", "Disabled"; "value", "2025-03-15"; "disabled", "" ] []
+            wc "fui-date-picker" [ "label", "With error"; "error", "Please select a valid date" ] []
+            div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("gap", "1rem") ] ] [
+                wc "fui-date-picker" [ "label", "Small";  "size", "sm" ] []
+                wc "fui-date-picker" [ "label", "Medium" ] []
+                wc "fui-date-picker" [ "label", "Large";  "size", "lg" ] []
+            ]
+        ] ]
+    | "color-picker" ->
+        [ div [ Style [ Display DisplayOptions.Flex; FlexDirection "column"; CSSProp.Custom("gap", "0.75rem") ] ] [
+            wc "fui-color-picker" [ "label", "Brand colour"; "value", "#7C3AED" ] []
+            wc "fui-color-picker" [ "label", "Accent";       "value", "#3B82F6" ] []
+            wc "fui-color-picker" [ "label", "Success";      "value", "#22C55E" ] []
+            wc "fui-color-picker" [ "label", "Danger";       "value", "#EF4444" ] []
+            wc "fui-color-picker" [ "label", "Disabled";     "value", "#F59E0B"; "disabled", "" ] []
+            wc "fui-color-picker" [ "label", "With error";   "error", "A colour is required" ] []
+            div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("gap", "1rem"); CSSProp.Custom("align-items", "flex-start") ] ] [
+                wc "fui-color-picker" [ "label", "Small";  "size", "sm"; "value", "#7C3AED" ] []
+                wc "fui-color-picker" [ "label", "Medium"; "value", "#7C3AED" ] []
+                wc "fui-color-picker" [ "label", "Large";  "size", "lg"; "value", "#7C3AED" ] []
+            ]
         ] ]
     | _ -> []
 

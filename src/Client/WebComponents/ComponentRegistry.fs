@@ -287,6 +287,142 @@ let all : ComponentMeta list = [
   options='[{"value":"react","label":"React"},{"value":"vue","label":"Vue"}]'>
 </fui-radio-group>"""
     }
+    {
+        Tag         = "fui-toggle"
+        Name        = "Toggle"
+        Slug        = "toggle"
+        Category    = "Inputs & Forms"
+        Description = "On/off switch rendered as a sliding pill. Fires fui-change on every toggle. Supports label, error message, disabled state, and sm/md/lg sizes."
+        Attributes  = [
+            { Name="checked";  Type="boolean"; Default="false"; Description="Whether the toggle is on" }
+            { Name="label";    Type="string";  Default="";      Description="Text label rendered beside the track" }
+            { Name="error";    Type="string";  Default="";      Description="Error message shown below the toggle" }
+            { Name="name";     Type="string";  Default="";      Description="Form field name for native form submission" }
+            { Name="disabled"; Type="boolean"; Default="false"; Description="Disables the toggle — non-interactive, reduced opacity" }
+            { Name="size";     Type="string";  Default="md";    Description="sm | md | lg" }
+        ]
+        CssProps = [
+            { Name="--fui-toggle-track-bg";      Description="Track background when off" }
+            { Name="--fui-toggle-border";        Description="Track border color when off" }
+            { Name="--fui-toggle-track-checked"; Description="Track background and border when on" }
+            { Name="--fui-toggle-thumb-off";     Description="Thumb color when off" }
+            { Name="--fui-toggle-thumb-on";      Description="Thumb color when on" }
+            { Name="--fui-toggle-border-focus";  Description="Focus ring color" }
+            { Name="--fui-toggle-label-color";   Description="Label text color" }
+            { Name="--fui-toggle-font";          Description="Font family" }
+        ]
+        Events = [
+            { Name="fui-change"; Description="Fired on every toggle — detail: { checked: bool }" }
+        ]
+        HtmlUsage = """<fui-toggle label="Enable notifications"></fui-toggle>
+<fui-toggle label="Dark mode" checked></fui-toggle>
+<fui-toggle label="Disabled off" disabled></fui-toggle>
+<fui-toggle label="Disabled on" checked disabled></fui-toggle>
+<fui-toggle label="With error" error="This setting is required"></fui-toggle>"""
+    }
+    {
+        Tag         = "fui-slider"
+        Name        = "Slider"
+        Slug        = "slider"
+        Category    = "Inputs & Forms"
+        Description = "Range slider with a filled track that follows the thumb. Supports min, max, step, label with live value readout, error message, disabled state, and sm/md/lg sizes."
+        Attributes  = [
+            { Name="value";    Type="number";  Default="0";    Description="Current value" }
+            { Name="min";      Type="number";  Default="0";    Description="Minimum value" }
+            { Name="max";      Type="number";  Default="100";  Description="Maximum value" }
+            { Name="step";     Type="number";  Default="1";    Description="Step increment" }
+            { Name="label";    Type="string";  Default="";     Description="Visible label rendered above the slider; also shows the live value on the right" }
+            { Name="disabled"; Type="boolean"; Default="false"; Description="Disables the slider — non-interactive, reduced opacity" }
+            { Name="name";     Type="string";  Default="";     Description="Form field name for native form submission" }
+            { Name="error";    Type="string";  Default="";     Description="Error message shown below the slider" }
+            { Name="size";     Type="string";  Default="md";   Description="sm | md | lg" }
+        ]
+        CssProps = [
+            { Name="--fui-slider-track-bg";    Description="Track background (unfilled portion)" }
+            { Name="--fui-slider-fill";        Description="Track fill color (filled portion)" }
+            { Name="--fui-slider-thumb";       Description="Thumb circle color" }
+            { Name="--fui-slider-thumb-border";Description="Thumb border color" }
+            { Name="--fui-slider-border-focus";Description="Focus ring color" }
+            { Name="--fui-slider-label-color"; Description="Label text color" }
+            { Name="--fui-slider-value-color"; Description="Live value readout color" }
+            { Name="--fui-slider-font";        Description="Font family" }
+        ]
+        Events = [
+            { Name="fui-input";  Description="Fired on every thumb movement — detail: { value: number }" }
+            { Name="fui-change"; Description="Fired when the thumb is released — detail: { value: number }" }
+        ]
+        HtmlUsage = """<fui-slider label="Volume" value="40"></fui-slider>
+<fui-slider label="Price range" min="100" max="1000" step="50" value="400"></fui-slider>
+<fui-slider label="Opacity" min="0" max="1" step="0.01" value="0.75"></fui-slider>
+<fui-slider label="Disabled" value="60" disabled></fui-slider>"""
+    }
+    {
+        Tag         = "fui-date-picker"
+        Name        = "DatePicker"
+        Slug        = "date-picker"
+        Category    = "Inputs & Forms"
+        Description = "Date selection field backed by a native <input type=\"date\">. The browser provides an accessible calendar popup; the component wraps it with consistent label, error, and size styling."
+        Attributes  = [
+            { Name="value";    Type="string";  Default="";     Description="Selected date in YYYY-MM-DD format (reflected)" }
+            { Name="min";      Type="string";  Default="";     Description="Earliest selectable date (YYYY-MM-DD)" }
+            { Name="max";      Type="string";  Default="";     Description="Latest selectable date (YYYY-MM-DD)" }
+            { Name="label";    Type="string";  Default="";     Description="Visible label rendered above the field" }
+            { Name="disabled"; Type="boolean"; Default="false"; Description="Disables the picker — non-interactive, reduced opacity" }
+            { Name="required"; Type="boolean"; Default="false"; Description="Marks the field as required for native form validation" }
+            { Name="name";     Type="string";  Default="";     Description="Form field name for native form submission" }
+            { Name="error";    Type="string";  Default="";     Description="Error message shown below the field; also sets invalid border" }
+            { Name="size";     Type="string";  Default="md";   Description="sm | md | lg" }
+        ]
+        CssProps = [
+            { Name="--fui-dp-bg";           Description="Input background color" }
+            { Name="--fui-dp-color";        Description="Input text color" }
+            { Name="--fui-dp-border";       Description="Border color (idle)" }
+            { Name="--fui-dp-border-focus"; Description="Border color on focus" }
+            { Name="--fui-dp-icon-color";   Description="Calendar icon color" }
+            { Name="--fui-dp-label-color";  Description="Label text color" }
+            { Name="--fui-dp-radius";       Description="Border radius" }
+            { Name="--fui-dp-font";         Description="Font family" }
+        ]
+        Events = [
+            { Name="fui-change"; Description="Fired on date selection — detail: { value: string } (YYYY-MM-DD)" }
+        ]
+        HtmlUsage = """<fui-date-picker label="Date of birth"></fui-date-picker>
+<fui-date-picker label="Check-in" value="2025-06-01" min="2025-01-01" max="2025-12-31"></fui-date-picker>
+<fui-date-picker label="Disabled" value="2025-03-15" disabled></fui-date-picker>
+<fui-date-picker label="With error" error="Please select a valid date"></fui-date-picker>"""
+    }
+    {
+        Tag         = "fui-color-picker"
+        Name        = "ColorPicker"
+        Slug        = "color-picker"
+        Category    = "Inputs & Forms"
+        Description = "Color selection control showing a live swatch and uppercase hex value. Backed by a native <input type=\"color\"> stretched invisibly over the wrapper so any click opens the browser color picker."
+        Attributes  = [
+            { Name="value";    Type="string";  Default="#7C3AED"; Description="Selected color as a hex string (e.g. #FF5733)" }
+            { Name="label";    Type="string";  Default="";         Description="Visible label rendered above the control" }
+            { Name="disabled"; Type="boolean"; Default="false";    Description="Disables the picker — non-interactive, reduced opacity" }
+            { Name="name";     Type="string";  Default="";         Description="Form field name for native form submission" }
+            { Name="error";    Type="string";  Default="";         Description="Error message shown below the control; also sets invalid border" }
+            { Name="size";     Type="string";  Default="md";       Description="sm | md | lg" }
+        ]
+        CssProps = [
+            { Name="--fui-cp-bg";           Description="Control background color" }
+            { Name="--fui-cp-border";       Description="Border color (idle)" }
+            { Name="--fui-cp-border-focus"; Description="Border and focus ring color" }
+            { Name="--fui-cp-value-color";  Description="Hex value text color" }
+            { Name="--fui-cp-label-color";  Description="Label text color" }
+            { Name="--fui-cp-radius";       Description="Border radius" }
+            { Name="--fui-cp-font";         Description="Font family" }
+        ]
+        Events = [
+            { Name="fui-input";  Description="Fired continuously while dragging — detail: { value: string }" }
+            { Name="fui-change"; Description="Fired on confirmed selection — detail: { value: string }" }
+        ]
+        HtmlUsage = """<fui-color-picker label="Brand colour" value="#7C3AED"></fui-color-picker>
+<fui-color-picker label="Accent" value="#3B82F6"></fui-color-picker>
+<fui-color-picker label="Disabled" value="#22C55E" disabled></fui-color-picker>
+<fui-color-picker label="With error" error="A colour is required"></fui-color-picker>"""
+    }
 ]
 
 // ── Lookup helpers ────────────────────────────────────────────────────────────
@@ -311,3 +447,7 @@ let registerAll () =
     WebComponents.FuiSelect.register ()
     WebComponents.FuiCheckbox.register ()
     WebComponents.FuiRadioGroup.register ()
+    WebComponents.FuiToggle.register ()
+    WebComponents.FuiSlider.register ()
+    WebComponents.FuiDatePicker.register ()
+    WebComponents.FuiColorPicker.register ()

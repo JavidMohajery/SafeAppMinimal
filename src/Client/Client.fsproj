@@ -13,6 +13,10 @@
     <Compile Include="WebComponents/Inputs/FuiSelect.fs" />
     <Compile Include="WebComponents/Inputs/FuiCheckbox.fs" />
     <Compile Include="WebComponents/Inputs/FuiRadioGroup.fs" />
+    <Compile Include="WebComponents/Inputs/FuiToggle.fs" />
+    <Compile Include="WebComponents/Inputs/FuiSlider.fs" />
+    <Compile Include="WebComponents/Inputs/FuiDatePicker.fs" />
+    <Compile Include="WebComponents/Inputs/FuiColorPicker.fs" />
     <Compile Include="WebComponents/ComponentRegistry.fs" />
     <!-- Existing pages -->
     <Compile Include="Pages/CounterElmish.fs" />
