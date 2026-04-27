@@ -8,6 +8,11 @@
     <None Include="index.html" />
     <!-- Web Components (must precede Client.fs) -->
     <Compile Include="WebComponents/Inputs/FuiButton.fs" />
+    <Compile Include="WebComponents/Inputs/FuiInput.fs" />
+    <Compile Include="WebComponents/Inputs/FuiTextarea.fs" />
+    <Compile Include="WebComponents/Inputs/FuiSelect.fs" />
+    <Compile Include="WebComponents/Inputs/FuiCheckbox.fs" />
+    <Compile Include="WebComponents/Inputs/FuiRadioGroup.fs" />
     <Compile Include="WebComponents/ComponentRegistry.fs" />
     <!-- Existing pages -->
     <Compile Include="Pages/CounterElmish.fs" />
