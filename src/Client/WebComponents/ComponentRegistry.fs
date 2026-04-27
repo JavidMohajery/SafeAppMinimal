@@ -463,6 +463,218 @@ let all : ComponentMeta list = [
 <fui-file-upload label="Disabled" disabled></fui-file-upload>
 <fui-file-upload label="With error" error="Please upload a file"></fui-file-upload>"""
     }
+    // ── Feedback & Status ─────────────────────────────────────────────────────
+    {
+        Tag         = "fui-badge"
+        Name        = "Badge"
+        Slug        = "badge"
+        Category    = "Feedback"
+        Description = "Compact pill label for status, counts, and category tags. Six colour variants, three sizes, and an optional dot indicator."
+        Attributes  = [
+            { Name="variant"; Type="string";  Default="neutral"; Description="neutral | success | warning | danger | info | accent" }
+            { Name="size";    Type="string";  Default="md";      Description="sm | md | lg" }
+            { Name="dot";     Type="boolean"; Default="false";   Description="Prefix a filled circle dot before the label text" }
+        ]
+        CssProps = [
+            { Name="--fui-badge-bg";     Description="Background colour (neutral default)" }
+            { Name="--fui-badge-border"; Description="Border colour (neutral default)" }
+            { Name="--fui-badge-color";  Description="Text colour (neutral default)" }
+            { Name="--fui-badge-font";   Description="Font family" }
+        ]
+        Events   = []
+        HtmlUsage = """<fui-badge>Neutral</fui-badge>
+<fui-badge variant="success">Success</fui-badge>
+<fui-badge variant="warning">Warning</fui-badge>
+<fui-badge variant="danger">Danger</fui-badge>
+<fui-badge variant="info">Info</fui-badge>
+<fui-badge variant="accent">Accent</fui-badge>
+
+<!-- With dot indicator -->
+<fui-badge variant="success" dot>Online</fui-badge>
+<fui-badge variant="danger"  dot>Offline</fui-badge>
+
+<!-- Sizes -->
+<fui-badge variant="accent" size="sm">Small</fui-badge>
+<fui-badge variant="accent" size="lg">Large</fui-badge>"""
+    }
+    {
+        Tag         = "fui-spinner"
+        Name        = "Spinner"
+        Slug        = "spinner"
+        Category    = "Feedback"
+        Description = "Animated loading indicator — a rotating ring with an optional visible label. Four sizes (sm / md / lg / xl). Respects prefers-reduced-motion."
+        Attributes  = [
+            { Name="size";  Type="string"; Default="md"; Description="sm | md | lg | xl" }
+            { Name="label"; Type="string"; Default="";   Description="Visible text label shown beside the ring; also used as aria-label" }
+        ]
+        CssProps = [
+            { Name="--fui-spinner-color";       Description="Ring foreground colour (the spinning arc)" }
+            { Name="--fui-spinner-track";       Description="Ring track colour (the static background arc)" }
+            { Name="--fui-spinner-label-color"; Description="Label text colour" }
+            { Name="--fui-spinner-font";        Description="Font family" }
+        ]
+        Events   = []
+        HtmlUsage = """<fui-spinner></fui-spinner>
+<fui-spinner size="lg"></fui-spinner>
+<fui-spinner size="xl" label="Loading data…"></fui-spinner>"""
+    }
+    {
+        Tag         = "fui-progress"
+        Name        = "Progress"
+        Slug        = "progress"
+        Category    = "Feedback"
+        Description = "Horizontal progress bar with optional label and live value readout. Supports determinate (value/max) and indeterminate modes, five variants, and three track sizes."
+        Attributes  = [
+            { Name="value";         Type="number";  Default="0";       Description="Current progress value" }
+            { Name="max";           Type="number";  Default="100";     Description="Maximum value (default 100)" }
+            { Name="label";         Type="string";  Default="";        Description="Label shown above the bar; also renders a live percentage on the right" }
+            { Name="size";          Type="string";  Default="md";      Description="sm (3px) | md (6px) | lg (10px)" }
+            { Name="variant";       Type="string";  Default="default"; Description="default | success | warning | danger | info" }
+            { Name="indeterminate"; Type="boolean"; Default="false";   Description="Animated sliding bar — use when total duration is unknown" }
+        ]
+        CssProps = [
+            { Name="--fui-progress-track"; Description="Track (background) colour" }
+            { Name="--fui-progress-fill";  Description="Fill colour (default variant)" }
+            { Name="--fui-progress-label-color"; Description="Label text colour" }
+            { Name="--fui-progress-value-color"; Description="Percentage value text colour" }
+            { Name="--fui-progress-font";        Description="Font family" }
+        ]
+        Events   = []
+        HtmlUsage = """<fui-progress label="Upload" value="65"></fui-progress>
+<fui-progress label="Storage" value="90" variant="danger"></fui-progress>
+<fui-progress label="Memory"  value="40" variant="warning"></fui-progress>
+<fui-progress label="Health"  value="100" variant="success"></fui-progress>
+
+<!-- Indeterminate -->
+<fui-progress label="Loading…" indeterminate></fui-progress>"""
+    }
+    {
+        Tag         = "fui-alert"
+        Name        = "Alert"
+        Slug        = "alert"
+        Category    = "Feedback"
+        Description = "Inline alert banner for contextual feedback. Four semantic variants each with a matching icon, left accent stripe, and background tint. Optionally dismissible."
+        Attributes  = [
+            { Name="variant";     Type="string";  Default="info";  Description="info | success | warning | danger" }
+            { Name="title";       Type="string";  Default="";      Description="Optional bold heading above the message" }
+            { Name="dismissible"; Type="boolean"; Default="false"; Description="Shows a × close button; fires fui-dismiss on click" }
+        ]
+        CssProps = [
+            { Name="--fui-alert-color";        Description="Message text colour" }
+            { Name="--fui-alert-title-color";  Description="Title text colour" }
+            { Name="--fui-alert-dismiss-color";Description="Dismiss button colour" }
+            { Name="--fui-alert-radius";       Description="Border radius" }
+            { Name="--fui-alert-font";         Description="Font family" }
+        ]
+        Events = [
+            { Name="fui-dismiss"; Description="Fired when the dismiss button is clicked — detail: { variant: string }" }
+        ]
+        HtmlUsage = """<fui-alert variant="info">Your session will expire in 10 minutes.</fui-alert>
+<fui-alert variant="success" title="Changes saved">Your profile has been updated.</fui-alert>
+<fui-alert variant="warning" title="Storage almost full">You have used 90% of your quota.</fui-alert>
+<fui-alert variant="danger"  title="Action required" dismissible>
+  Please update your billing details.
+</fui-alert>"""
+    }
+    {
+        Tag         = "fui-skeleton"
+        Name        = "Skeleton"
+        Slug        = "skeleton"
+        Category    = "Feedback"
+        Description = "Animated shimmer placeholder used while content is loading. Three variants: rect (default), text (one or more lines with a shorter last line), and circle. Respects prefers-reduced-motion."
+        Attributes  = [
+            { Name="variant"; Type="string"; Default="rect"; Description="rect | text | circle" }
+            { Name="width";   Type="string"; Default="";     Description="Explicit width (e.g. 200px). Defaults to 100% for rect/text, 40px for circle." }
+            { Name="height";  Type="string"; Default="";     Description="Explicit height (e.g. 80px). Defaults to 1rem for rect, 0.875rem for text lines." }
+            { Name="lines";   Type="number"; Default="1";    Description="Number of text lines (text variant only)" }
+        ]
+        CssProps = [
+            { Name="--fui-sk-base";   Description="Base skeleton colour" }
+            { Name="--fui-sk-shine";  Description="Shimmer highlight colour" }
+            { Name="--fui-sk-radius"; Description="Border radius (rect variant)" }
+        ]
+        Events   = []
+        HtmlUsage = """<!-- Rect placeholder -->
+<fui-skeleton height="120px"></fui-skeleton>
+
+<!-- Text — 3 lines -->
+<fui-skeleton variant="text" lines="3"></fui-skeleton>
+
+<!-- Circle avatar -->
+<fui-skeleton variant="circle" width="48px"></fui-skeleton>
+
+<!-- Card loading pattern -->
+<div style="display:flex;gap:0.75rem;align-items:center">
+  <fui-skeleton variant="circle" width="40px"></fui-skeleton>
+  <div style="flex:1">
+    <fui-skeleton variant="text" lines="2" height="0.75rem"></fui-skeleton>
+  </div>
+</div>"""
+    }
+    {
+        Tag         = "fui-toast"
+        Name        = "Toast"
+        Slug        = "toast"
+        Category    = "Feedback"
+        Description = "Ephemeral notification card with a left accent stripe, icon, title, message, and close button. Place inside a positioned container (e.g. bottom-right corner) for toast stacks."
+        Attributes  = [
+            { Name="variant"; Type="string"; Default="info"; Description="info | success | warning | danger" }
+            { Name="title";   Type="string"; Default="";     Description="Optional bold heading above the message" }
+            { Name="message"; Type="string"; Default="";     Description="Notification text — or use default slot for rich content" }
+        ]
+        CssProps = [
+            { Name="--fui-toast-bg";          Description="Card background colour" }
+            { Name="--fui-toast-border";      Description="Card border colour" }
+            { Name="--fui-toast-title-color"; Description="Title text colour" }
+            { Name="--fui-toast-color";       Description="Message text colour" }
+            { Name="--fui-toast-close-color"; Description="Close button colour" }
+            { Name="--fui-toast-radius";      Description="Border radius" }
+            { Name="--fui-toast-font";        Description="Font family" }
+        ]
+        Events = [
+            { Name="fui-dismiss"; Description="Fired when the close button is clicked — detail: { variant: string }" }
+        ]
+        HtmlUsage = """<fui-toast variant="success" title="Saved" message="Your changes have been saved."></fui-toast>
+<fui-toast variant="danger"  title="Error"  message="Failed to process the request."></fui-toast>
+<fui-toast variant="warning" title="Warning">Storage is running low.</fui-toast>"""
+    }
+    {
+        Tag         = "fui-empty-state"
+        Name        = "EmptyState"
+        Slug        = "empty-state"
+        Category    = "Feedback"
+        Description = "Zero-data placeholder displayed when a list, table, or search result set is empty. Composed of an icon slot, title, description, and an action slot for a primary CTA."
+        Attributes  = [
+            { Name="title";       Type="string"; Default="Nothing here yet"; Description="Primary heading text" }
+            { Name="description"; Type="string"; Default="";                  Description="Supporting text shown below the title" }
+        ]
+        CssProps = [
+            { Name="--fui-es-icon-bg";     Description="Icon wrapper background" }
+            { Name="--fui-es-icon-border"; Description="Icon wrapper border colour" }
+            { Name="--fui-es-icon-color";  Description="Default icon colour" }
+            { Name="--fui-es-title-color"; Description="Title text colour" }
+            { Name="--fui-es-desc-color";  Description="Description text colour" }
+            { Name="--fui-es-padding";     Description="Outer padding (default 3rem 1.5rem)" }
+            { Name="--fui-es-font";        Description="Font family" }
+        ]
+        Events   = []
+        HtmlUsage = """<!-- Minimal -->
+<fui-empty-state title="No results found"></fui-empty-state>
+
+<!-- With description -->
+<fui-empty-state
+  title="No files yet"
+  description="Upload your first file to get started.">
+</fui-empty-state>
+
+<!-- With custom icon and action -->
+<fui-empty-state
+  title="Your inbox is empty"
+  description="Messages from your team will appear here.">
+  <span slot="icon">📭</span>
+  <fui-button slot="action" variant="primary">Compose message</fui-button>
+</fui-empty-state>"""
+    }
     // ── Navigation ────────────────────────────────────────────────────────────
     {
         Tag         = "fui-tabs"
@@ -854,6 +1066,13 @@ let registerAll () =
     WebComponents.FuiDatePicker.register ()
     WebComponents.FuiColorPicker.register ()
     WebComponents.FuiFileUpload.register ()
+    WebComponents.FuiBadge.register ()
+    WebComponents.FuiSpinner.register ()
+    WebComponents.FuiProgress.register ()
+    WebComponents.FuiAlert.register ()
+    WebComponents.FuiSkeleton.register ()
+    WebComponents.FuiToast.register ()
+    WebComponents.FuiEmptyState.register ()
     WebComponents.FuiDivider.register ()
     WebComponents.FuiStack.register ()
     WebComponents.FuiScrollArea.register ()

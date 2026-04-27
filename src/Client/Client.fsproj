@@ -25,6 +25,13 @@
     <Compile Include="WebComponents/Layout/FuiGrid.fs" />
     <Compile Include="WebComponents/Layout/FuiSpacer.fs" />
     <Compile Include="WebComponents/Layout/FuiAspectRatio.fs" />
+    <Compile Include="WebComponents/Feedback/FuiBadge.fs" />
+    <Compile Include="WebComponents/Feedback/FuiSpinner.fs" />
+    <Compile Include="WebComponents/Feedback/FuiProgress.fs" />
+    <Compile Include="WebComponents/Feedback/FuiAlert.fs" />
+    <Compile Include="WebComponents/Feedback/FuiSkeleton.fs" />
+    <Compile Include="WebComponents/Feedback/FuiToast.fs" />
+    <Compile Include="WebComponents/Feedback/FuiEmptyState.fs" />
     <Compile Include="WebComponents/Navigation/FuiTabs.fs" />
     <Compile Include="WebComponents/Navigation/FuiBreadcrumb.fs" />
     <Compile Include="WebComponents/Navigation/FuiPagination.fs" />
