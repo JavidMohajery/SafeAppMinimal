@@ -805,6 +805,50 @@ let all : ComponentMeta list = [
   <fui-button slot="action" variant="primary">Compose message</fui-button>
 </fui-empty-state>"""
     }
+    {
+        Tag         = "fui-error-boundary"
+        Name        = "ErrorBoundary"
+        Slug        = "error-boundary"
+        Category    = "Feedback"
+        Description = "Styled error state display with an icon, title, message, optional retry button, and a collapsible stack trace / detail panel. Use it wherever an operation can fail."
+        Attributes  = [
+            { Name="title";     Type="string";  Default="Something went wrong"; Description="Error heading" }
+            { Name="message";   Type="string";  Default="An unexpected error occurred. Please try again."; Description="Descriptive error message" }
+            { Name="code";      Type="string";  Default="";      Description="Optional stack trace or error code — revealed by a 'Show details' toggle button" }
+            { Name="retryable"; Type="boolean"; Default="false"; Description="Shows a 'Try again' button that fires fui-retry on click" }
+        ]
+        CssProps = [
+            { Name="--fui-eb-bg";          Description="Container background colour" }
+            { Name="--fui-eb-border";      Description="Container border colour" }
+            { Name="--fui-eb-radius";      Description="Container border radius" }
+            { Name="--fui-eb-padding";     Description="Container padding" }
+            { Name="--fui-eb-title-color"; Description="Title text colour" }
+            { Name="--fui-eb-msg-color";   Description="Message text colour" }
+            { Name="--fui-eb-font";        Description="Font family" }
+        ]
+        Events = [
+            { Name="fui-retry"; Description="Fired when the 'Try again' button is clicked — no detail payload" }
+        ]
+        HtmlUsage = """<!-- Minimal -->
+<fui-error-boundary></fui-error-boundary>
+
+<!-- With retry -->
+<fui-error-boundary
+  title="Failed to load data"
+  message="Could not reach the server. Check your connection and try again."
+  retryable>
+</fui-error-boundary>
+
+<!-- With stack trace -->
+<fui-error-boundary
+  title="Unhandled exception"
+  message="An internal error occurred."
+  retryable
+  code="TypeError: Cannot read properties of undefined
+  at fetchUser (app.js:142)
+  at async Dashboard (app.js:89)">
+</fui-error-boundary>"""
+    }
     // ── Overlay & Floating ────────────────────────────────────────────────────
     {
         Tag         = "fui-modal"
@@ -1714,6 +1758,39 @@ let all : ComponentMeta list = [
   </div>
 </fui-aspect-ratio>"""
     }
+    {
+        Tag         = "fui-resizable-panel"
+        Name        = "ResizablePanel"
+        Slug        = "resizable-panel"
+        Category    = "Layout"
+        Description = "Two-panel container split by a draggable divider. The first panel (start slot) is sized in pixels; the second panel (end slot) fills remaining space. Supports horizontal and vertical orientations with configurable min/max constraints."
+        Attributes  = [
+            { Name="default-size"; Type="number"; Default="300";        Description="Initial width (horizontal) or height (vertical) of the start panel in pixels" }
+            { Name="min-size";     Type="number"; Default="80";         Description="Minimum size of the start panel in pixels" }
+            { Name="max-size";     Type="number"; Default="800";        Description="Maximum size of the start panel in pixels" }
+            { Name="direction";    Type="string"; Default="horizontal"; Description="horizontal | vertical" }
+        ]
+        CssProps = [
+            { Name="--fui-rp-handle-bg";    Description="Handle background colour (idle)" }
+            { Name="--fui-rp-handle-hover"; Description="Handle background on hover / drag" }
+            { Name="--fui-rp-bar-color";    Description="Drag-bar pill colour (idle)" }
+            { Name="--fui-rp-bar-hover";    Description="Drag-bar pill colour on hover / drag" }
+        ]
+        Events = [
+            { Name="fui-resize"; Description="Fired when dragging ends — detail: { size: number } (start panel size in px)" }
+        ]
+        HtmlUsage = """<!-- Horizontal split -->
+<fui-resizable-panel default-size="260" style="height:240px">
+  <div slot="start" style="padding:1rem;background:#161618;height:100%">Left panel</div>
+  <div slot="end"   style="padding:1rem;background:#1E1E21;height:100%">Right panel</div>
+</fui-resizable-panel>
+
+<!-- Vertical split -->
+<fui-resizable-panel direction="vertical" default-size="120" style="height:280px">
+  <div slot="start" style="padding:1rem;background:#161618;width:100%">Top panel</div>
+  <div slot="end"   style="padding:1rem;background:#1E1E21;width:100%">Bottom panel</div>
+</fui-resizable-panel>"""
+    }
     // ── Navigation (additional) ───────────────────────────────────────────────
     {
         Tag         = "fui-link"
@@ -2061,6 +2138,7 @@ let registerAll () =
     WebComponents.FuiSkeleton.register ()
     WebComponents.FuiToast.register ()
     WebComponents.FuiEmptyState.register ()
+    WebComponents.FuiErrorBoundary.register ()
     WebComponents.FuiModal.register ()
     WebComponents.FuiDrawer.register ()
     WebComponents.FuiTooltip.register ()
@@ -2085,6 +2163,7 @@ let registerAll () =
     WebComponents.FuiGrid.register ()
     WebComponents.FuiSpacer.register ()
     WebComponents.FuiAspectRatio.register ()
+    WebComponents.FuiResizablePanel.register ()
     WebComponents.FuiTabs.register ()
     WebComponents.FuiBreadcrumb.register ()
     WebComponents.FuiPagination.register ()

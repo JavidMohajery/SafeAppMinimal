@@ -106,7 +106,8 @@ let sidebar (model: Model) =
                 sidebarLink "Container"    "#/component/layout/container"    model.Hash
                 sidebarLink "Grid"         "#/component/layout/grid"         model.Hash
                 sidebarLink "Spacer"       "#/component/layout/spacer"       model.Hash
-                sidebarLink "AspectRatio"  "#/component/layout/aspect-ratio" model.Hash
+                sidebarLink "AspectRatio"    "#/component/layout/aspect-ratio"    model.Hash
+                sidebarLink "ResizablePanel" "#/component/layout/resizable-panel" model.Hash
             ]
             div [ ClassName "sidebar-group" ] [
                 div [ ClassName "sidebar-group-label" ] [ str "Overlay" ]
@@ -124,7 +125,8 @@ let sidebar (model: Model) =
                 sidebarLink "Alert"      "#/component/feedback/alert"       model.Hash
                 sidebarLink "Skeleton"   "#/component/feedback/skeleton"    model.Hash
                 sidebarLink "Toast"      "#/component/feedback/toast"       model.Hash
-                sidebarLink "EmptyState" "#/component/feedback/empty-state" model.Hash
+                sidebarLink "EmptyState"    "#/component/feedback/empty-state"    model.Hash
+                sidebarLink "ErrorBoundary" "#/component/feedback/error-boundary" model.Hash
             ]
             div [ ClassName "sidebar-group" ] [
                 div [ ClassName "sidebar-group-label" ] [ str "Data Display" ]
@@ -1448,6 +1450,46 @@ let componentLivePreview (slug: string) : ReactElement list =
             div [] [
                 sl "Sortable + striped"
                 wc "fui-table" [ "columns", cols; "rows", rows; "sortable", ""; "striped", "" ] []
+            ]
+        ] ]
+    | "resizable-panel" ->
+        let panelSt bg = Style [ Padding "1rem"; Background bg; Height "100%"; Display DisplayOptions.Flex; CSSProp.Custom("align-items", "center"); CSSProp.Custom("justify-content", "center"); Color "#6E6E76"; FontFamily "'Sora',sans-serif"; FontSize ".875rem" ]
+        let sl txt = p [ Style [ Margin "0 0 0.5rem"; FontSize "0.75rem"; CSSProp.Custom("color", "#6E6E76"); CSSProp.Custom("text-transform", "uppercase"); CSSProp.Custom("letter-spacing", "0.06em") ] ] [ str txt ]
+        [ div [ Style [ Display DisplayOptions.Flex; FlexDirection "column"; CSSProp.Custom("gap", "2rem") ] ] [
+            div [] [
+                sl "Horizontal — drag the divider"
+                div [ Style [ Height "200px" ] ] [
+                    wc "fui-resizable-panel" [ "default-size", "260"; "min-size", "100"; "max-size", "500" ] [
+                        domEl "div" [ HTMLAttr.Custom("slot", box "start"); panelSt "#161618" ] [ str "Start panel" ]
+                        domEl "div" [ HTMLAttr.Custom("slot", box "end");   panelSt "#1E1E21" ] [ str "End panel" ]
+                    ]
+                ]
+            ]
+            div [] [
+                sl "Vertical — drag the divider"
+                div [ Style [ Height "280px" ] ] [
+                    wc "fui-resizable-panel" [ "direction", "vertical"; "default-size", "110"; "min-size", "60"; "max-size", "180" ] [
+                        domEl "div" [ HTMLAttr.Custom("slot", box "start"); Style [ Padding "1rem"; Background "#161618"; Width "100%"; Display DisplayOptions.Flex; CSSProp.Custom("align-items", "center"); CSSProp.Custom("justify-content", "center"); Color "#6E6E76"; FontFamily "'Sora',sans-serif"; FontSize ".875rem" ] ] [ str "Top panel" ]
+                        domEl "div" [ HTMLAttr.Custom("slot", box "end");   Style [ Padding "1rem"; Background "#1E1E21"; Width "100%"; Display DisplayOptions.Flex; CSSProp.Custom("align-items", "center"); CSSProp.Custom("justify-content", "center"); Color "#6E6E76"; FontFamily "'Sora',sans-serif"; FontSize ".875rem"; Flex "1" ] ] [ str "Bottom panel" ]
+                    ]
+                ]
+            ]
+        ] ]
+    | "error-boundary" ->
+        let sl txt = p [ Style [ Margin "0 0 0.5rem"; FontSize "0.75rem"; CSSProp.Custom("color", "#6E6E76"); CSSProp.Custom("text-transform", "uppercase"); CSSProp.Custom("letter-spacing", "0.06em") ] ] [ str txt ]
+        let stackTrace = "TypeError: Cannot read properties of undefined (reading 'map')\n  at renderList (app.js:142:18)\n  at Dashboard (app.js:89:5)\n  at async loadPage (router.js:34:3)"
+        [ div [ Style [ Display DisplayOptions.Flex; FlexDirection "column"; CSSProp.Custom("gap", "2rem") ] ] [
+            div [] [
+                sl "Default"
+                wc "fui-error-boundary" [] []
+            ]
+            div [] [
+                sl "With retry button"
+                wc "fui-error-boundary" [ "title", "Failed to load data"; "message", "Could not reach the server. Check your connection and try again."; "retryable", "" ] []
+            ]
+            div [] [
+                sl "With stack trace"
+                wc "fui-error-boundary" [ "title", "Unhandled exception"; "message", "An internal error occurred while rendering this component."; "retryable", ""; "code", stackTrace ] []
             ]
         ] ]
     | "time-picker" ->
