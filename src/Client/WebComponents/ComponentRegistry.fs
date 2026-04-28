@@ -463,6 +463,136 @@ let all : ComponentMeta list = [
 <fui-file-upload label="Disabled" disabled></fui-file-upload>
 <fui-file-upload label="With error" error="Please upload a file"></fui-file-upload>"""
     }
+    {
+        Tag         = "fui-time-picker"
+        Name        = "TimePicker"
+        Slug        = "time-picker"
+        Category    = "Inputs & Forms"
+        Description = "Styled time input wrapping the native <input type=\"time\"> with a custom clock icon, label, error message, and sm/md/lg sizes. Inherits the browser's native time picker UI."
+        Attributes  = [
+            { Name="value";    Type="string";  Default="";      Description="Initial time value in HH:MM format" }
+            { Name="min";      Type="string";  Default="";      Description="Minimum selectable time (HH:MM)" }
+            { Name="max";      Type="string";  Default="";      Description="Maximum selectable time (HH:MM)" }
+            { Name="label";    Type="string";  Default="";      Description="Visible label rendered above the input" }
+            { Name="disabled"; Type="boolean"; Default="false"; Description="Disables the input" }
+            { Name="required"; Type="boolean"; Default="false"; Description="Marks the field as required" }
+            { Name="name";     Type="string";  Default="";      Description="Form field name" }
+            { Name="size";     Type="string";  Default="md";    Description="sm | md | lg" }
+            { Name="error";    Type="string";  Default="";      Description="Error message shown below the input" }
+        ]
+        CssProps = [
+            { Name="--fui-tp-bg";           Description="Input background colour" }
+            { Name="--fui-tp-color";        Description="Input text colour" }
+            { Name="--fui-tp-border";       Description="Border colour (idle)" }
+            { Name="--fui-tp-border-focus"; Description="Border colour on focus" }
+            { Name="--fui-tp-icon-color";   Description="Clock icon colour" }
+            { Name="--fui-tp-label-color";  Description="Label text colour" }
+            { Name="--fui-tp-radius";       Description="Border radius" }
+            { Name="--fui-tp-font";         Description="Font family" }
+        ]
+        Events = [
+            { Name="fui-change"; Description="Fired on value change — detail: { value: string } in HH:MM format" }
+        ]
+        HtmlUsage = """<fui-time-picker label="Meeting time"></fui-time-picker>
+<fui-time-picker label="Earliest" min="08:00" max="18:00"></fui-time-picker>
+<fui-time-picker label="Disabled" disabled value="14:30"></fui-time-picker>
+<fui-time-picker label="With error" error="Please enter a valid time"></fui-time-picker>"""
+    }
+    {
+        Tag         = "fui-combobox"
+        Name        = "Combobox"
+        Slug        = "combobox"
+        Category    = "Inputs & Forms"
+        Description = "Searchable dropdown combining a text input with a filtered option list. Supports keyboard navigation (↑↓ move, ↵ select, Esc close), placeholder, disabled, and error states."
+        Attributes  = [
+            { Name="value";       Type="string";  Default="";      Description="Initially selected option value" }
+            { Name="label";       Type="string";  Default="";      Description="Visible label above the input" }
+            { Name="placeholder"; Type="string";  Default="";      Description="Placeholder text shown when nothing is selected" }
+            { Name="options";     Type="string";  Default="[]";    Description="JSON array of {value, label} objects" }
+            { Name="disabled";    Type="boolean"; Default="false"; Description="Disables the combobox" }
+            { Name="required";    Type="boolean"; Default="false"; Description="Marks the field as required" }
+            { Name="error";       Type="string";  Default="";      Description="Error message shown below" }
+            { Name="name";        Type="string";  Default="";      Description="Form field name" }
+            { Name="size";        Type="string";  Default="md";    Description="sm | md | lg" }
+        ]
+        CssProps = [
+            { Name="--fui-cb-bg";           Description="Input and dropdown background" }
+            { Name="--fui-cb-color";        Description="Input text colour" }
+            { Name="--fui-cb-border";       Description="Border colour (idle)" }
+            { Name="--fui-cb-border-focus"; Description="Border colour on focus" }
+            { Name="--fui-cb-placeholder";  Description="Placeholder text colour" }
+            { Name="--fui-cb-arrow-color";  Description="Chevron icon colour" }
+            { Name="--fui-cb-item-color";   Description="Option text colour" }
+            { Name="--fui-cb-accent";       Description="Highlighted option text colour" }
+            { Name="--fui-cb-label-color";  Description="Label text colour" }
+            { Name="--fui-cb-radius";       Description="Border radius" }
+            { Name="--fui-cb-font";         Description="Font family" }
+        ]
+        Events = [
+            { Name="fui-change"; Description="Fired when an option is selected — detail: { value: string, label: string }" }
+        ]
+        HtmlUsage = """<fui-combobox
+  label="Framework"
+  placeholder="Search or pick..."
+  options='[{"value":"react","label":"React"},{"value":"vue","label":"Vue"},{"value":"svelte","label":"Svelte"},{"value":"solid","label":"Solid"},{"value":"fable","label":"Fable"}]'>
+</fui-combobox>"""
+    }
+    {
+        Tag         = "fui-form-field"
+        Name        = "FormField"
+        Slug        = "form-field"
+        Category    = "Inputs & Forms"
+        Description = "Layout wrapper that slots any form control between a label row and an optional hint or error message. Use it to wrap fui-input, fui-select, or any native input with consistent spacing and labelling."
+        Attributes  = [
+            { Name="label";    Type="string";  Default="";      Description="Label text displayed above the slotted control" }
+            { Name="hint";     Type="string";  Default="";      Description="Helper text shown below when no error is set" }
+            { Name="error";    Type="string";  Default="";      Description="Error message — replaces hint when non-empty" }
+            { Name="required"; Type="boolean"; Default="false"; Description="Appends a red asterisk to the label" }
+        ]
+        CssProps = [
+            { Name="--fui-ff-label-color"; Description="Label text colour" }
+            { Name="--fui-ff-hint-color";  Description="Hint text colour" }
+            { Name="--fui-ff-error-color"; Description="Error text colour" }
+            { Name="--fui-ff-font";        Description="Font family for label and hint" }
+        ]
+        Events   = []
+        HtmlUsage = """<fui-form-field label="Username" hint="Letters and numbers only" required>
+  <input type="text" placeholder="jdoe" style="width:100%;padding:.5rem .75rem;background:#1E1E21;border:1px solid #2A2A2E;border-radius:6px;color:#E8E8ED;font-size:.875rem;box-sizing:border-box" />
+</fui-form-field>
+
+<fui-form-field label="Email" error="Not a valid email address" required>
+  <input type="email" value="bad-email" style="width:100%;padding:.5rem .75rem;background:#1E1E21;border:1px solid #EF4444;border-radius:6px;color:#E8E8ED;font-size:.875rem;box-sizing:border-box" />
+</fui-form-field>"""
+    }
+    {
+        Tag         = "fui-form"
+        Name        = "Form"
+        Slug        = "form"
+        Category    = "Inputs & Forms"
+        Description = "Form container that stacks slotted fields with consistent gap, shows an optional form-level error banner, and provides a loading overlay with spinner. Fires fui-submit when any [type=submit] element in the slot is clicked."
+        Attributes  = [
+            { Name="error";   Type="string";  Default="";      Description="Form-level error message shown in a red banner above the fields" }
+            { Name="loading"; Type="boolean"; Default="false"; Description="Shows a semi-transparent loading overlay with a spinner over the form" }
+        ]
+        CssProps = [
+            { Name="--fui-form-gap";  Description="Gap between stacked fields (default 1.25rem)" }
+            { Name="--fui-form-font"; Description="Font family" }
+        ]
+        Events = [
+            { Name="fui-submit"; Description="Fired when a [type=submit] button inside the form is clicked" }
+        ]
+        HtmlUsage = """<fui-form>
+  <fui-input label="Email" type="email" placeholder="you@example.com"></fui-input>
+  <fui-input label="Password" type="password"></fui-input>
+  <fui-button variant="primary" type="submit">Sign in</fui-button>
+</fui-form>
+
+<!-- With error and loading -->
+<fui-form error="Invalid email or password" loading>
+  <fui-input label="Email" type="email"></fui-input>
+  <fui-button variant="primary" type="submit">Retry</fui-button>
+</fui-form>"""
+    }
     // ── Feedback & Status ─────────────────────────────────────────────────────
     {
         Tag         = "fui-badge"
@@ -1920,6 +2050,10 @@ let registerAll () =
     WebComponents.FuiDatePicker.register ()
     WebComponents.FuiColorPicker.register ()
     WebComponents.FuiFileUpload.register ()
+    WebComponents.FuiTimePicker.register ()
+    WebComponents.FuiCombobox.register ()
+    WebComponents.FuiFormField.register ()
+    WebComponents.FuiForm.register ()
     WebComponents.FuiBadge.register ()
     WebComponents.FuiSpinner.register ()
     WebComponents.FuiProgress.register ()

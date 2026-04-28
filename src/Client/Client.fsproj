@@ -18,6 +18,10 @@
     <Compile Include="WebComponents/Inputs/FuiDatePicker.fs" />
     <Compile Include="WebComponents/Inputs/FuiColorPicker.fs" />
     <Compile Include="WebComponents/Inputs/FuiFileUpload.fs" />
+    <Compile Include="WebComponents/Inputs/FuiTimePicker.fs" />
+    <Compile Include="WebComponents/Inputs/FuiCombobox.fs" />
+    <Compile Include="WebComponents/Inputs/FuiFormField.fs" />
+    <Compile Include="WebComponents/Inputs/FuiForm.fs" />
     <Compile Include="WebComponents/Layout/FuiDivider.fs" />
     <Compile Include="WebComponents/Layout/FuiStack.fs" />
     <Compile Include="WebComponents/Layout/FuiScrollArea.fs" />

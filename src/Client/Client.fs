@@ -93,6 +93,10 @@ let sidebar (model: Model) =
                 sidebarLink "DatePicker"   "#/component/inputs/date-picker"   model.Hash
                 sidebarLink "ColorPicker" "#/component/inputs/color-picker" model.Hash
                 sidebarLink "FileUpload"  "#/component/inputs/file-upload"  model.Hash
+                sidebarLink "TimePicker" "#/component/inputs/time-picker" model.Hash
+                sidebarLink "Combobox"   "#/component/inputs/combobox"    model.Hash
+                sidebarLink "FormField"  "#/component/inputs/form-field"  model.Hash
+                sidebarLink "Form"       "#/component/inputs/form"        model.Hash
             ]
             div [ ClassName "sidebar-group" ] [
                 div [ ClassName "sidebar-group-label" ] [ str "Layout" ]
@@ -1444,6 +1448,75 @@ let componentLivePreview (slug: string) : ReactElement list =
             div [] [
                 sl "Sortable + striped"
                 wc "fui-table" [ "columns", cols; "rows", rows; "sortable", ""; "striped", "" ] []
+            ]
+        ] ]
+    | "time-picker" ->
+        [ div [ Style [ Display DisplayOptions.Flex; FlexDirection "column"; CSSProp.Custom("gap", "0.75rem"); MaxWidth "320px" ] ] [
+            wc "fui-time-picker" [ "label", "Meeting time" ] []
+            wc "fui-time-picker" [ "label", "Business hours"; "min", "08:00"; "max", "18:00" ] []
+            wc "fui-time-picker" [ "label", "Disabled"; "disabled", ""; "value", "14:30" ] []
+            wc "fui-time-picker" [ "label", "With error"; "error", "Please enter a valid time" ] []
+        ] ]
+    | "combobox" ->
+        let fwOpts = """[{"value":"react","label":"React"},{"value":"vue","label":"Vue"},{"value":"svelte","label":"Svelte"},{"value":"solid","label":"Solid"},{"value":"angular","label":"Angular"},{"value":"fable","label":"Fable"}]"""
+        let langOpts = """[{"value":"fsharp","label":"F#"},{"value":"csharp","label":"C#"},{"value":"python","label":"Python"},{"value":"typescript","label":"TypeScript"},{"value":"rust","label":"Rust"}]"""
+        [ div [ Style [ Display DisplayOptions.Flex; FlexDirection "column"; CSSProp.Custom("gap", "0.75rem"); MaxWidth "320px" ] ] [
+            wc "fui-combobox" [ "label", "Framework"; "placeholder", "Search or pick..."; "options", fwOpts ] []
+            wc "fui-combobox" [ "label", "Language"; "placeholder", "Type to filter..."; "options", langOpts; "value", "fsharp" ] []
+            wc "fui-combobox" [ "label", "Disabled"; "disabled", ""; "options", fwOpts; "value", "react" ] []
+            wc "fui-combobox" [ "label", "With error"; "placeholder", "Required"; "options", fwOpts; "error", "Please select a framework" ] []
+        ] ]
+    | "form-field" ->
+        let baseInputStyle =
+            Style [ Width "100%"; CSSProp.Custom("padding", ".5rem .75rem"); CSSProp.Custom("background", "#1E1E21")
+                    CSSProp.Custom("border", "1px solid #2A2A2E"); BorderRadius "6px"; Color "#E8E8ED"
+                    FontFamily "'JetBrains Mono', monospace"; FontSize ".875rem"
+                    CSSProp.Custom("box-sizing", "border-box"); Outline "none" ]
+        let errInputStyle =
+            Style [ Width "100%"; CSSProp.Custom("padding", ".5rem .75rem"); CSSProp.Custom("background", "#1E1E21")
+                    CSSProp.Custom("border", "1px solid #EF4444"); BorderRadius "6px"; Color "#E8E8ED"
+                    FontFamily "'JetBrains Mono', monospace"; FontSize ".875rem"
+                    CSSProp.Custom("box-sizing", "border-box"); Outline "none" ]
+        let taStyle =
+            Style [ Width "100%"; CSSProp.Custom("padding", ".5rem .75rem"); CSSProp.Custom("background", "#1E1E21")
+                    CSSProp.Custom("border", "1px solid #2A2A2E"); BorderRadius "6px"; Color "#E8E8ED"
+                    FontFamily "'JetBrains Mono', monospace"; FontSize ".875rem"
+                    CSSProp.Custom("box-sizing", "border-box"); Outline "none"
+                    CSSProp.Custom("resize", "vertical") ]
+        [ div [ Style [ Display DisplayOptions.Flex; FlexDirection "column"; CSSProp.Custom("gap", "1rem"); MaxWidth "360px" ] ] [
+            wc "fui-form-field" [ "label", "Username"; "hint", "Letters and numbers only"; "required", "" ] [
+                domEl "input" [ HTMLAttr.Type "text"; HTMLAttr.Placeholder "jdoe"; baseInputStyle ] []
+            ]
+            wc "fui-form-field" [ "label", "Email"; "error", "Not a valid email address"; "required", "" ] [
+                domEl "input" [ HTMLAttr.Type "email"; HTMLAttr.DefaultValue "bad-email"; errInputStyle ] []
+            ]
+            wc "fui-form-field" [ "label", "Bio"; "hint", "Max 160 characters" ] [
+                domEl "textarea" [ HTMLAttr.Rows 3; taStyle ] []
+            ]
+        ] ]
+    | "form" ->
+        [ div [ Style [ Display DisplayOptions.Flex; FlexDirection "column"; CSSProp.Custom("gap", "2rem"); MaxWidth "400px" ] ] [
+            div [] [
+                p [ Style [ Margin "0 0 0.75rem"; FontSize "0.75rem"; CSSProp.Custom("color", "#6E6E76"); CSSProp.Custom("text-transform", "uppercase"); CSSProp.Custom("letter-spacing", "0.06em") ] ] [ str "Default form" ]
+                wc "fui-form" [] [
+                    wc "fui-input" [ "label", "Email"; "type", "email"; "placeholder", "you@example.com" ] []
+                    wc "fui-input" [ "label", "Password"; "type", "password"; "placeholder", "••••••••" ] []
+                    wc "fui-button" [ "variant", "primary"; "type", "submit" ] [ str "Sign in" ]
+                ]
+            ]
+            div [] [
+                p [ Style [ Margin "0 0 0.75rem"; FontSize "0.75rem"; CSSProp.Custom("color", "#6E6E76"); CSSProp.Custom("text-transform", "uppercase"); CSSProp.Custom("letter-spacing", "0.06em") ] ] [ str "Error state" ]
+                wc "fui-form" [ "error", "Invalid email or password. Please try again." ] [
+                    wc "fui-input" [ "label", "Email"; "type", "email"; "error", "Check your email" ] []
+                    wc "fui-button" [ "variant", "primary"; "type", "submit" ] [ str "Retry" ]
+                ]
+            ]
+            div [] [
+                p [ Style [ Margin "0 0 0.75rem"; FontSize "0.75rem"; CSSProp.Custom("color", "#6E6E76"); CSSProp.Custom("text-transform", "uppercase"); CSSProp.Custom("letter-spacing", "0.06em") ] ] [ str "Loading state" ]
+                wc "fui-form" [ "loading", "" ] [
+                    wc "fui-input" [ "label", "Email"; "type", "email" ] []
+                    wc "fui-button" [ "variant", "primary"; "type", "submit" ] [ str "Submitting..." ]
+                ]
             ]
         ] ]
     | "link" ->
