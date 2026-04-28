@@ -167,6 +167,13 @@ let sidebar (model: Model) =
                 sidebarLink "Prose"      "#/component/typography/prose"      model.Hash
             ]
             div [ ClassName "sidebar-group" ] [
+                div [ ClassName "sidebar-group-label" ] [ str "Charts" ]
+                sidebarLink "BarChart"   "#/component/charts/bar-chart"   model.Hash
+                sidebarLink "LineChart"  "#/component/charts/line-chart"  model.Hash
+                sidebarLink "PieChart"   "#/component/charts/pie-chart"   model.Hash
+                sidebarLink "Sparkline"  "#/component/charts/sparkline"   model.Hash
+            ]
+            div [ ClassName "sidebar-group" ] [
                 div [ ClassName "sidebar-group-label" ] [ str "Examples" ]
                 sidebarLink "Counter — Elmish" "#/counter-elmish" model.Hash
                 sidebarLink "Counter — DOM"    "#/counter-dom"    model.Hash
@@ -1753,6 +1760,80 @@ let componentLivePreview (slug: string) : ReactElement list =
                 li [] [ str "Full keyboard and ARIA accessibility" ]
             ]
             p [] [ str "All components support CSS custom properties for theming." ]
+        ] ]
+    | "bar-chart" ->
+        let sl txt = p [ Style [ Margin "0 0 0.5rem"; FontSize "0.75rem"; CSSProp.Custom("color", "#6E6E76"); CSSProp.Custom("text-transform", "uppercase"); CSSProp.Custom("letter-spacing", "0.06em") ] ] [ str txt ]
+        let weekData   = """[{"label":"Mon","value":42},{"label":"Tue","value":67},{"label":"Wed","value":55},{"label":"Thu","value":80},{"label":"Fri","value":73},{"label":"Sat","value":91},{"label":"Sun","value":38}]"""
+        let salesData  = """[{"label":"Jan","value":120},{"label":"Feb","value":95},{"label":"Mar","value":148},{"label":"Apr","value":132},{"label":"May","value":176},{"label":"Jun","value":155}]"""
+        [ div [ Style [ Display DisplayOptions.Flex; FlexDirection "column"; CSSProp.Custom("gap", "2.5rem") ] ] [
+            div [] [
+                sl "Default — weekly visitors"
+                wc "fui-bar-chart" [ "data", weekData; "height", "200" ] []
+            ]
+            div [] [
+                sl "With value labels"
+                wc "fui-bar-chart" [ "data", weekData; "height", "200"; "show-values", "" ] []
+            ]
+            div [] [
+                sl "Custom color — monthly sales"
+                wc "fui-bar-chart" [ "data", salesData; "height", "180"; "color", "#3B82F6"; "show-values", "" ] []
+            ]
+        ] ]
+    | "line-chart" ->
+        let sl txt = p [ Style [ Margin "0 0 0.5rem"; FontSize "0.75rem"; CSSProp.Custom("color", "#6E6E76"); CSSProp.Custom("text-transform", "uppercase"); CSSProp.Custom("letter-spacing", "0.06em") ] ] [ str txt ]
+        let perfData = """[{"label":"Jan","value":30},{"label":"Feb","value":45},{"label":"Mar","value":38},{"label":"Apr","value":62},{"label":"May","value":55},{"label":"Jun","value":78},{"label":"Jul","value":70},{"label":"Aug","value":85}]"""
+        let errData  = """[{"label":"Mon","value":12},{"label":"Tue","value":8},{"label":"Wed","value":15},{"label":"Thu","value":6},{"label":"Fri","value":10},{"label":"Sat","value":3},{"label":"Sun","value":7}]"""
+        [ div [ Style [ Display DisplayOptions.Flex; FlexDirection "column"; CSSProp.Custom("gap", "2.5rem") ] ] [
+            div [] [
+                sl "Line only — performance score"
+                wc "fui-line-chart" [ "data", perfData; "height", "160" ] []
+            ]
+            div [] [
+                sl "With area fill"
+                wc "fui-line-chart" [ "data", perfData; "height", "160"; "fill", "" ] []
+            ]
+            div [] [
+                sl "Error rate — no dots, danger color"
+                wc "fui-line-chart" [ "data", errData; "height", "140"; "color", "#EF4444"; "fill", ""; "show-dots", "false" ] []
+            ]
+        ] ]
+    | "pie-chart" ->
+        let sl txt = p [ Style [ Margin "0 0 0.5rem"; FontSize "0.75rem"; CSSProp.Custom("color", "#6E6E76"); CSSProp.Custom("text-transform", "uppercase"); CSSProp.Custom("letter-spacing", "0.06em") ] ] [ str txt ]
+        let fwData    = """[{"label":"React","value":42},{"label":"Vue","value":28},{"label":"Svelte","value":18},{"label":"Angular","value":12}]"""
+        let budgetData = """[{"label":"Dev","value":45},{"label":"Design","value":25},{"label":"Marketing","value":20},{"label":"Ops","value":10}]"""
+        [ div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("gap", "3rem"); CSSProp.Custom("flex-wrap", "wrap") ] ] [
+            div [] [
+                sl "Pie chart"
+                wc "fui-pie-chart" [ "data", fwData; "size", "200" ] []
+            ]
+            div [] [
+                sl "Donut chart"
+                wc "fui-pie-chart" [ "data", fwData; "size", "200"; "donut", "" ] []
+            ]
+            div [] [
+                sl "Custom palette"
+                wc "fui-pie-chart" [ "data", budgetData; "size", "200"; "donut", ""; "colors", """["#7C3AED","#3B82F6","#22C55E","#F59E0B"]""" ] []
+            ]
+        ] ]
+    | "sparkline" ->
+        let sl txt = p [ Style [ Margin "0 0 0.25rem"; FontSize "0.75rem"; CSSProp.Custom("color", "#6E6E76"); CSSProp.Custom("text-transform", "uppercase"); CSSProp.Custom("letter-spacing", "0.06em") ] ] [ str txt ]
+        let rising  = """[12,18,15,28,22,35,30,42,38,55]"""
+        let falling = """[80,72,68,55,60,45,48,35,28,18]"""
+        let volatile' = """[40,65,30,72,25,80,20,85,45,60]"""
+        let statRow label value trend color data =
+            div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("align-items", "center"); CSSProp.Custom("justify-content", "space-between"); Padding "0.875rem 1rem"; Background "#161618"; BorderRadius "8px"; Border "1px solid #2A2A2E" ] ] [
+                div [] [
+                    p [ Style [ Margin "0 0 0.125rem"; FontSize "0.75rem"; Color "#6E6E76"; FontFamily "'JetBrains Mono',monospace"; CSSProp.Custom("text-transform", "uppercase"); CSSProp.Custom("letter-spacing", "0.06em") ] ] [ str label ]
+                    p [ Style [ Margin "0"; FontSize "1.25rem"; FontWeight "700"; FontFamily "'JetBrains Mono',monospace"; Color "#E8E8ED" ] ] [ str value ]
+                    p [ Style [ Margin "0.125rem 0 0"; FontSize "0.75rem"; Color color ] ] [ str trend ]
+                ]
+                wc "fui-sparkline" [ "data", data; "width", "80"; "height", "36"; "color", color ] []
+            ]
+        [ div [ Style [ Display DisplayOptions.Flex; FlexDirection "column"; CSSProp.Custom("gap", "0.75rem"); MaxWidth "480px" ] ] [
+            sl "Inline stat cards with sparklines"
+            statRow "Revenue"     "$24,512"  "+12.4% this month"  "#22C55E" rising
+            statRow "Errors"      "142"      "-8.3% this week"    "#EF4444" falling
+            statRow "Throughput"  "8.9k rps" "volatile"           "#F59E0B" volatile'
         ] ]
     | _ -> []
 

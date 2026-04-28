@@ -72,6 +72,10 @@
     <Compile Include="WebComponents/Typography/FuiKbd.fs" />
     <Compile Include="WebComponents/Typography/FuiBlockquote.fs" />
     <Compile Include="WebComponents/Typography/FuiProse.fs" />
+    <Compile Include="WebComponents/Charts/FuiBarChart.fs" />
+    <Compile Include="WebComponents/Charts/FuiLineChart.fs" />
+    <Compile Include="WebComponents/Charts/FuiPieChart.fs" />
+    <Compile Include="WebComponents/Charts/FuiSparkline.fs" />
     <Compile Include="WebComponents/ComponentRegistry.fs" />
     <!-- Existing pages -->
     <Compile Include="Pages/CounterElmish.fs" />

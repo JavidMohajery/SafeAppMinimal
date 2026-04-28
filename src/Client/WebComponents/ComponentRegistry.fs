@@ -2098,6 +2098,108 @@ let all : ComponentMeta list = [
   <blockquote>Zero framework dependencies required.</blockquote>
 </fui-prose>"""
     }
+    {
+        Tag         = "fui-bar-chart"
+        Name        = "BarChart"
+        Slug        = "bar-chart"
+        Category    = "Charts"
+        Description = "Responsive SVG bar chart with optional value labels, grid lines, and hover highlight. Data supplied as a JSON array of {label, value} objects."
+        Attributes  = [
+            { Name="data";        Type="string";  Default="[]";     Description="JSON array of {label, value} objects" }
+            { Name="height";      Type="number";  Default="200";    Description="Chart area height in px" }
+            { Name="color";       Type="string";  Default="#7C3AED"; Description="Bar fill colour" }
+            { Name="show-labels"; Type="boolean"; Default="true";   Description="Show x-axis labels beneath bars" }
+            { Name="show-values"; Type="boolean"; Default="false";  Description="Show numeric value above each bar" }
+            { Name="gap";         Type="number";  Default="8";      Description="Pixel gap between bars" }
+        ]
+        CssProps = []
+        Events   = []
+        HtmlUsage = """<fui-bar-chart
+  data='[{"label":"Mon","value":42},{"label":"Tue","value":67},{"label":"Wed","value":55}]'
+  height="200"
+  color="#7C3AED"
+  show-labels
+  show-values>
+</fui-bar-chart>"""
+    }
+    {
+        Tag         = "fui-line-chart"
+        Name        = "LineChart"
+        Slug        = "line-chart"
+        Category    = "Charts"
+        Description = "Responsive SVG line chart with optional area fill, data-point dots, and x-axis labels. Data supplied as a JSON array of {label, value} objects."
+        Attributes  = [
+            { Name="data";        Type="string";  Default="[]";     Description="JSON array of {label, value} objects" }
+            { Name="height";      Type="number";  Default="160";    Description="Chart area height in px" }
+            { Name="color";       Type="string";  Default="#7C3AED"; Description="Line and dot colour" }
+            { Name="fill";        Type="boolean"; Default="false";  Description="Fill the area under the line" }
+            { Name="show-dots";   Type="boolean"; Default="true";   Description="Show circular data-point markers" }
+            { Name="show-labels"; Type="boolean"; Default="true";   Description="Show x-axis labels" }
+        ]
+        CssProps = []
+        Events   = []
+        HtmlUsage = """<fui-line-chart
+  data='[{"label":"Jan","value":30},{"label":"Feb","value":55},{"label":"Mar","value":42}]'
+  height="160"
+  fill
+  show-dots>
+</fui-line-chart>"""
+    }
+    {
+        Tag         = "fui-pie-chart"
+        Name        = "PieChart"
+        Slug        = "pie-chart"
+        Category    = "Charts"
+        Description = "SVG pie or donut chart with colour legend. Data supplied as a JSON array of {label, value} objects. Pass a custom colors array to override the default palette."
+        Attributes  = [
+            { Name="data";        Type="string";  Default="[]";   Description="JSON array of {label, value} objects" }
+            { Name="size";        Type="number";  Default="200";  Description="SVG canvas diameter in px" }
+            { Name="donut";       Type="boolean"; Default="false"; Description="Render as a donut chart" }
+            { Name="colors";      Type="string";  Default="[]";   Description="JSON array of colour strings — overrides the default palette" }
+            { Name="show-legend"; Type="boolean"; Default="true"; Description="Show colour legend beneath the chart" }
+        ]
+        CssProps = []
+        Events   = []
+        HtmlUsage = """<!-- Pie chart -->
+<fui-pie-chart
+  data='[{"label":"React","value":42},{"label":"Vue","value":28},{"label":"Svelte","value":18},{"label":"Other","value":12}]'>
+</fui-pie-chart>
+
+<!-- Donut chart with custom colours -->
+<fui-pie-chart
+  data='[{"label":"Q1","value":35},{"label":"Q2","value":45},{"label":"Q3","value":20}]'
+  donut
+  colors='["#7C3AED","#3B82F6","#22C55E"]'>
+</fui-pie-chart>"""
+    }
+    {
+        Tag         = "fui-sparkline"
+        Name        = "Sparkline"
+        Slug        = "sparkline"
+        Category    = "Charts"
+        Description = "Compact inline SVG line chart for at-a-glance metric trends. Takes a flat JSON number array — no labels. Renders inline (vertical-align: middle) for embedding inside text or table cells."
+        Attributes  = [
+            { Name="data";         Type="string";  Default="[]";     Description="JSON array of numbers" }
+            { Name="width";        Type="number";  Default="120";    Description="SVG width in px" }
+            { Name="height";       Type="number";  Default="40";     Description="SVG height in px" }
+            { Name="color";        Type="string";  Default="#7C3AED"; Description="Line and fill colour" }
+            { Name="fill";         Type="boolean"; Default="true";   Description="Fill the area under the line" }
+            { Name="stroke-width"; Type="number";  Default="2";      Description="Line stroke width in px" }
+        ]
+        CssProps = []
+        Events   = []
+        HtmlUsage = """<!-- Inline in a stat row -->
+<span>Revenue</span>
+<fui-sparkline data="[12,34,28,56,45,67,52,78]" width="80" height="28"></fui-sparkline>
+
+<!-- Taller, no fill -->
+<fui-sparkline
+  data="[80,65,72,45,38,52,30,42]"
+  width="120" height="48"
+  color="#EF4444"
+  fill="false">
+</fui-sparkline>"""
+    }
 ]
 
 // ── Lookup helpers ────────────────────────────────────────────────────────────
@@ -2181,3 +2283,7 @@ let registerAll () =
     WebComponents.FuiKbd.register ()
     WebComponents.FuiBlockquote.register ()
     WebComponents.FuiProse.register ()
+    WebComponents.FuiBarChart.register ()
+    WebComponents.FuiLineChart.register ()
+    WebComponents.FuiPieChart.register ()
+    WebComponents.FuiSparkline.register ()
