@@ -5,21 +5,27 @@ open Elmish
 open Elmish.React
 open Fable.React
 open Fable.React.Props
-
+open Fable.Core
 // Register all Web Components with the browser before React starts rendering.
 do ComponentRegistry.registerAll()
 
-type Page = Home | GettingStarted | CategoryIndex of string | CounterElmish | CounterDom | Component of string * string
+type Page = Home | GettingStarted | CategoryIndex of string | BackendDemo of string | CounterElmish | CounterDom | Component of string * string
+
+type FetchState = Idle | Fetching | Done of int * string | Failed of string
 
 type Model = {
     Page          : Page
     Hash          : string
     ElmishCounter : Pages.CounterElmish.Model
+    BackendResults: Map<string, FetchState>
 }
 
 type Msg =
     | UrlChanged of string
     | ElmishCounterMsg of Pages.CounterElmish.Msg
+    | BackendFetch   of string * string          // slug, url
+    | BackendReceive of string * int * string    // slug, status, body
+    | BackendError   of string * string          // slug, error message
 
 let urlCatLabel (slug: string) =
     match slug with
@@ -44,14 +50,18 @@ let parsePage (hash: string) =
     | "counter-elmish"  :: _ -> CounterElmish
     | "counter-dom"     :: _ -> CounterDom
     | "getting-started" :: _ -> GettingStarted
-    | "category" :: cat :: _ -> CategoryIndex cat
-    | "component" :: cat :: slug :: _ -> Component(cat, slug)
+    | "category"        :: cat  :: _    -> CategoryIndex cat
+    | "backend"         :: slug :: _    -> BackendDemo slug
+    | "component"       :: cat :: slug :: _ -> Component(cat, slug)
     | _ -> Home
 
 let init () =
     let counter, _ = Pages.CounterElmish.init ()
     let hash = window.location.hash
-    { Page = parsePage hash; Hash = hash; ElmishCounter = counter }, Cmd.none
+    { Page = parsePage hash; Hash = hash; ElmishCounter = counter; BackendResults = Map.empty }, Cmd.none
+
+[<Fable.Core.Emit("fetch($0).then(r=>r.text().then(b=>({status:r.status,body:b})))")>]
+let private fetchGet (url: string) : Fable.Core.JS.Promise<{| status: int; body: string |}> = jsNative
 
 let update msg model =
     match msg with
@@ -60,6 +70,17 @@ let update msg model =
     | ElmishCounterMsg sub ->
         let m, cmd = Pages.CounterElmish.update sub model.ElmishCounter
         { model with ElmishCounter = m }, Cmd.map ElmishCounterMsg cmd
+    | BackendFetch(slug, url) ->
+        let cmd =
+            Cmd.OfPromise.either
+                fetchGet url
+                (fun r -> BackendReceive(slug, r.status, r.body))
+                (fun ex -> BackendError(slug, ex.Message))
+        { model with BackendResults = model.BackendResults |> Map.add slug Fetching }, cmd
+    | BackendReceive(slug, status, body) ->
+        { model with BackendResults = model.BackendResults |> Map.add slug (Done(status, body)) }, Cmd.none
+    | BackendError(slug, msg) ->
+        { model with BackendResults = model.BackendResults |> Map.add slug (Failed msg) }, Cmd.none
 
 // Elmish 4 subscription: hashchange listener.
 let hashSub (_model: Model) : Sub<Msg> =
@@ -195,6 +216,10 @@ let sidebar (model: Model) =
                 sidebarLink "Sparkline"  "#/component/charts/sparkline"   model.Hash
             ]
             div [ ClassName "sidebar-group" ] [
+                div [ ClassName "sidebar-group-label" ] [ str "Backend Patterns" ]
+                sidebarLink "Health Check" "#/backend/health-check" model.Hash
+            ]
+            div [ ClassName "sidebar-group" ] [
                 div [ ClassName "sidebar-group-label" ] [ str "Examples" ]
                 sidebarLink "Counter — Elmish" "#/counter-elmish" model.Hash
                 sidebarLink "Counter — DOM"    "#/counter-dom"    model.Hash
@@ -207,8 +232,11 @@ let sidebar (model: Model) =
 let breadcrumbItems (page: Page) : (string * bool) list =
     match page with
     | Home             -> [ "Home", true ]
-    | GettingStarted   -> [ "Home", false; "Getting Started", true ]
+    | GettingStarted    -> [ "Home", false; "Getting Started", true ]
     | CategoryIndex cat -> [ "Home", false; "Components", false; urlCatLabel cat, true ]
+    | BackendDemo slug  ->
+        let name = slug |> fun s -> System.Char.ToUpper(s.[0]).ToString() + s.[1..].Replace("-", " ")
+        [ "Home", false; "Backend Patterns", false; name, true ]
     | CounterElmish    -> [ "Home", false; "Examples", false; "Counter — Elmish", true ]
     | CounterDom       -> [ "Home", false; "Examples", false; "Counter — DOM", true ]
     | Component(_, slug) ->
@@ -2059,6 +2087,115 @@ let categoryIndexPage (catSlug: string) =
         ]
     ]
 
+// ── Backend demo pages ────────────────────────────────────────────────────────
+
+type BackendDemoMeta = {
+    Slug        : string
+    Name        : string
+    Description : string
+    Method      : string
+    Url         : string
+    SourceCode  : string
+}
+
+let private backendDemos = [
+    { 
+        Slug        = "health-check"
+        Name        = "Health Check"
+        Description = "Returns application status, timestamp, and uptime. Used by load balancers and uptime monitors to verify the service is alive."
+        Method      = "GET"
+        Url         = "/api/health"
+        SourceCode  =
+    """let healthHandler : HttpHandler =
+        fun next ctx ->
+            let resp = {|
+                status      = "healthy"
+                timestamp   = System.DateTime.UtcNow.ToString("o")
+                uptime_ms   = System.Environment.TickCount64
+                environment = System.Environment.GetEnvironmentVariable(
+                                "ASPNETCORE_ENVIRONMENT")
+                            |> Option.ofObj
+                            |> Option.defaultValue "Production"
+            |}
+            json resp next ctx
+
+    // Registered in the router:
+    //   get Route.health healthHandler""" }
+]
+
+let backendDemoPage (slug: string) (model: Model) (dispatch: Msg -> unit) =
+    match backendDemos |> List.tryFind (fun d -> d.Slug = slug) with
+    | None ->
+        div [ ClassName "comp-page" ] [ h1 [] [ str $"Demo not found: {slug}" ] ]
+    | Some demo ->
+        let state   = model.BackendResults |> Map.tryFind slug |> Option.defaultValue Idle
+        let loading = state = Fetching
+        let methodColor = match demo.Method with "GET" -> "#22C55E" | "POST" -> "#3B82F6" | "DELETE" -> "#EF4444" | _ -> "#F59E0B"
+        let statusColor code = if code >= 200 && code < 300 then "#22C55E" elif code >= 400 then "#EF4444" else "#F59E0B"
+        let labelStyle  = Style [ FontFamily "'JetBrains Mono',monospace"; FontSize "0.65rem"; FontWeight "700"; CSSProp.Custom("text-transform", "uppercase"); CSSProp.Custom("letter-spacing", "0.08em"); Color "#6E6E76"; MarginBottom "0.5rem" ]
+        let codePreStyle = Style [ Margin "0"; FontFamily "'JetBrains Mono',monospace"; FontSize "0.8rem"; Color "#E8E8ED"; LineHeight "1.7"; CSSProp.Custom("white-space", "pre") ]
+        let panelStyle   = Style [ Background "#0D0D0F"; Border "1px solid #2A2A2E"; BorderRadius "8px"; Padding "1.125rem 1.375rem"; CSSProp.Custom("overflow", "auto") ]
+
+        div [ ClassName "comp-page" ] [
+            // Header
+            div [ ClassName "comp-header" ] [
+                div [ ClassName "comp-header-row" ] [
+                    h1 [ ClassName "comp-name" ] [ str demo.Name ]
+                    span [ ClassName "comp-badge" ] [ str "Backend" ]
+                ]
+                p [ Style [ FontFamily "'Sora',sans-serif"; Color "#6E6E76"; Margin "0" ] ] [ str demo.Description ]
+            ]
+
+            // Endpoint + Send button
+            div [ Style [ Background "#161618"; Border "1px solid #2A2A2E"; BorderRadius "10px"; Padding "1.25rem 1.5rem"; MarginBottom "1.5rem" ] ] [
+                p [ labelStyle ] [ str "Endpoint" ]
+                div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("align-items", "center"); CSSProp.Custom("gap", "0.75rem"); CSSProp.Custom("flex-wrap", "wrap") ] ] [
+                    span [ Style [ Background methodColor; Color "#000"; FontFamily "'JetBrains Mono',monospace"; FontSize "0.75rem"; FontWeight "700"; Padding "0.25rem 0.625rem"; BorderRadius "4px" ] ] [ str demo.Method ]
+                    code [ Style [ FontFamily "'JetBrains Mono',monospace"; FontSize "0.9rem"; Color "#E8E8ED"; CSSProp.Custom("flex", "1") ] ] [ str demo.Url ]
+                    button [
+                        Style [ Background (if loading then "#3A1E6E" else "#7C3AED"); Color "#fff"; Border "none"; BorderRadius "6px"; Padding "0.45rem 1.25rem"; FontFamily "'JetBrains Mono',monospace"; FontSize "0.875rem"; FontWeight "600"; Cursor "pointer"; CSSProp.Custom("transition", "background 0.15s") ]
+                        Disabled loading
+                        OnClick (fun _ -> dispatch (BackendFetch(demo.Slug, demo.Url)))
+                    ] [ str (if loading then "Sending…" else "Send Request") ]
+                ]
+            ]
+
+            // Response panel
+            div [ Style [ MarginBottom "1.5rem" ] ] [
+                p [ labelStyle ] [ str "Response" ]
+                match state with
+                | Idle ->
+                    div [ Style [ Background "#161618"; Border "1px solid #2A2A2E"; BorderRadius "8px"; Padding "2rem"; CSSProp.Custom("text-align", "center") ] ] [
+                        p [ Style [ Color "#6E6E76"; FontFamily "'Sora',sans-serif"; FontSize "0.875rem"; Margin "0" ] ] [ str "Press Send Request to call the endpoint." ]
+                    ]
+                | Fetching ->
+                    div [ Style [ Background "#161618"; Border "1px solid #2A2A2E"; BorderRadius "8px"; Padding "2rem"; CSSProp.Custom("text-align", "center") ] ] [
+                        wc "fui-spinner" [ "size", "sm" ] []
+                    ]
+                | Done(status, body) ->
+                    div [ panelStyle ] [
+                        div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("align-items", "center"); CSSProp.Custom("gap", "0.75rem"); MarginBottom "0.875rem" ] ] [
+                            span [ Style [ FontFamily "'JetBrains Mono',monospace"; FontSize "0.8rem"; FontWeight "700"; Color (statusColor status) ] ] [ str $"HTTP {status}" ]
+                            span [ Style [ Color "#2A2A2E" ] ] [ str "·" ]
+                            span [ Style [ FontFamily "'Sora',sans-serif"; FontSize "0.8rem"; Color "#6E6E76" ] ] [ str "application/json" ]
+                        ]
+                        pre [ codePreStyle ] [ str body ]
+                    ]
+                | Failed err ->
+                    div [ Style [ Background "#1A0A0A"; Border "1px solid rgba(239,68,68,0.3)"; BorderRadius "8px"; Padding "1.125rem 1.375rem" ] ] [
+                        p [ Style [ FontFamily "'JetBrains Mono',monospace"; FontSize "0.8rem"; Color "#EF4444"; Margin "0" ] ] [ str $"Error: {err}" ]
+                    ]
+            ]
+
+            // Source code
+            div [] [
+                p [ labelStyle ] [ str "Server source (F#)" ]
+                div [ panelStyle ] [
+                    pre [ codePreStyle ] [ str demo.SourceCode ]
+                ]
+            ]
+        ]
+
 // ── Root view ─────────────────────────────────────────────────────────────────
 
 let view (model: Model) (dispatch: Msg -> unit) =
@@ -2069,11 +2206,12 @@ let view (model: Model) (dispatch: Msg -> unit) =
             main [ ClassName "page-content" ] [
                 div [ Key (string model.Page) ] (
                     match model.Page with
-                    | Home             -> [ homePage ]
-                    | GettingStarted   -> [ gettingStartedPage ]
+                    | Home              -> [ homePage ]
+                    | GettingStarted    -> [ gettingStartedPage ]
                     | CategoryIndex cat -> [ categoryIndexPage cat ]
-                    | CounterElmish    -> [ Pages.CounterElmish.view model.ElmishCounter (ElmishCounterMsg >> dispatch) ]
-                    | CounterDom       -> [ Pages.CounterDom.view () ]
+                    | BackendDemo slug  -> [ backendDemoPage slug model dispatch ]
+                    | CounterElmish     -> [ Pages.CounterElmish.view model.ElmishCounter (ElmishCounterMsg >> dispatch) ]
+                    | CounterDom        -> [ Pages.CounterDom.view () ]
                     | Component(cat, slug) -> [ componentPage cat slug ]
                 )
             ]
