@@ -1584,6 +1584,170 @@ let all : ComponentMeta list = [
   </div>
 </fui-aspect-ratio>"""
     }
+    // ── Typography ────────────────────────────────────────────────────────────
+    {
+        Tag         = "fui-heading"
+        Name        = "Heading"
+        Slug        = "heading"
+        Category    = "Typography"
+        Description = "Semantic heading element (h1–h6) with a consistent type scale, optional muted/accent colour variants, and a truncation mode for overflow-safe titles."
+        Attributes  = [
+            { Name="level";    Type="string";  Default="2";     Description="1 | 2 | 3 | 4 | 5 | 6 — maps to the matching HTML heading element" }
+            { Name="color";    Type="string";  Default="";      Description="muted | accent — overrides the default text colour" }
+            { Name="truncate"; Type="boolean"; Default="false"; Description="Clips overflowing text with an ellipsis on a single line" }
+        ]
+        CssProps = [
+            { Name="--fui-heading-font";  Description="Font family (default JetBrains Mono)" }
+            { Name="--fui-heading-color"; Description="Default heading text colour" }
+            { Name="--fui-heading-muted"; Description="Muted variant text colour (used for h6 by default)" }
+            { Name="--fui-h1";            Description="h1 font size (default 2.25rem)" }
+            { Name="--fui-h2";            Description="h2 font size (default 1.5rem)" }
+            { Name="--fui-h3";            Description="h3 font size (default 1.25rem)" }
+            { Name="--fui-h4";            Description="h4 font size (default 1.1rem)" }
+            { Name="--fui-h5";            Description="h5 font size (default 0.9375rem)" }
+            { Name="--fui-h6";            Description="h6 font size (default 0.875rem)" }
+        ]
+        Events   = []
+        HtmlUsage = """<fui-heading level="1">Display Heading</fui-heading>
+<fui-heading level="2">Section Heading</fui-heading>
+<fui-heading level="3">Subsection</fui-heading>
+<fui-heading level="4" color="muted">Muted h4</fui-heading>
+<fui-heading level="2" color="accent">Accent heading</fui-heading>
+<fui-heading level="2" truncate style="width:200px">Very long title that gets clipped</fui-heading>"""
+    }
+    {
+        Tag         = "fui-text"
+        Name        = "Text"
+        Slug        = "text"
+        Category    = "Typography"
+        Description = "Body paragraph element with five size steps, five weight steps, six colour variants, text-align control, and single-line truncation."
+        Attributes  = [
+            { Name="size";     Type="string";  Default="md";     Description="xs | sm | md | lg | xl" }
+            { Name="weight";   Type="string";  Default="normal"; Description="light | normal | medium | semi | bold" }
+            { Name="color";    Type="string";  Default="";       Description="muted | accent | success | warning | danger | info" }
+            { Name="align";    Type="string";  Default="";       Description="left | center | right" }
+            { Name="truncate"; Type="boolean"; Default="false";  Description="Clips overflowing text with an ellipsis on a single line" }
+        ]
+        CssProps = [
+            { Name="--fui-text-font";  Description="Font family (default Sora)" }
+            { Name="--fui-text-color"; Description="Default text colour" }
+            { Name="--fui-text-size";  Description="Base font size override" }
+        ]
+        Events   = []
+        HtmlUsage = """<fui-text>Regular body copy at the default md size.</fui-text>
+<fui-text size="sm" color="muted">Small muted helper text.</fui-text>
+<fui-text size="lg" weight="semi">Large semi-bold text.</fui-text>
+<fui-text color="accent">Accent coloured text.</fui-text>
+<fui-text color="success">Success green text.</fui-text>
+<fui-text truncate style="width:240px">This very long sentence will be clipped at the edge.</fui-text>"""
+    }
+    {
+        Tag         = "fui-label"
+        Name        = "Label"
+        Slug        = "label"
+        Category    = "Typography"
+        Description = "ALL-CAPS monospace label element for form fields and group headers. Includes an optional asterisk for required fields and maps its for attribute to the target input id."
+        Attributes  = [
+            { Name="for";      Type="string";  Default="";      Description="id of the labelled form control — forwarded to the native <label> for attribute" }
+            { Name="size";     Type="string";  Default="md";    Description="sm | md | lg" }
+            { Name="required"; Type="boolean"; Default="false"; Description="Shows a red asterisk after the label text" }
+        ]
+        CssProps = [
+            { Name="--fui-label-font";  Description="Font family (default JetBrains Mono)" }
+            { Name="--fui-label-color"; Description="Label text colour (default muted)" }
+        ]
+        Events   = []
+        HtmlUsage = """<fui-label for="email-field">Email address</fui-label>
+<input id="email-field" type="email" />
+
+<fui-label required>Password</fui-label>
+<fui-label size="sm" color="muted">Optional helper label</fui-label>"""
+    }
+    {
+        Tag         = "fui-code"
+        Name        = "Code"
+        Slug        = "code"
+        Category    = "Typography"
+        Description = "Inline code span with a subtle accent-tinted background and border. Use for variable names, file paths, short snippets, or any monospaced inline text."
+        Attributes  = []
+        CssProps = [
+            { Name="--fui-code-font";   Description="Font family (default JetBrains Mono)" }
+            { Name="--fui-code-bg";     Description="Background tint colour" }
+            { Name="--fui-code-border"; Description="Border colour" }
+            { Name="--fui-code-color";  Description="Text colour (default accent violet)" }
+        ]
+        Events   = []
+        HtmlUsage = """<p>Run <fui-code>dotnet fable watch .</fui-code> to start the compiler.</p>
+<p>Set <fui-code>NODE_ENV=production</fui-code> before building.</p>"""
+    }
+    {
+        Tag         = "fui-kbd"
+        Name        = "Kbd"
+        Slug        = "kbd"
+        Category    = "Typography"
+        Description = "Keyboard key badge styled with a raised bottom border to mimic a physical key cap. Renders a semantic <kbd> element for screen readers."
+        Attributes  = []
+        CssProps = [
+            { Name="--fui-kbd-font";   Description="Font family (default JetBrains Mono)" }
+            { Name="--fui-kbd-bg";     Description="Key cap background colour" }
+            { Name="--fui-kbd-border"; Description="Key cap border colour (side and bottom)" }
+            { Name="--fui-kbd-color";  Description="Key label text colour" }
+        ]
+        Events   = []
+        HtmlUsage = """<p>Press <fui-kbd>Ctrl</fui-kbd> + <fui-kbd>K</fui-kbd> to open the palette.</p>
+<p>Save with <fui-kbd>⌘</fui-kbd><fui-kbd>S</fui-kbd> on Mac.</p>"""
+    }
+    {
+        Tag         = "fui-blockquote"
+        Name        = "Blockquote"
+        Slug        = "blockquote"
+        Category    = "Typography"
+        Description = "Block quote with a vivid accent left border and an optional citation line rendered below the quoted text."
+        Attributes  = [
+            { Name="cite"; Type="string"; Default=""; Description="Optional citation or source text displayed below the quote in small muted type" }
+        ]
+        CssProps = [
+            { Name="--fui-bq-font";   Description="Font family (default Sora)" }
+            { Name="--fui-bq-border"; Description="Left accent border colour" }
+            { Name="--fui-bq-color";  Description="Quote text colour" }
+            { Name="--fui-bq-size";   Description="Quote font size" }
+        ]
+        Events   = []
+        HtmlUsage = """<fui-blockquote cite="— Donald Knuth">
+  Premature optimisation is the root of all evil.
+</fui-blockquote>
+
+<fui-blockquote>
+  Any fool can write code that a computer can understand.
+  Good programmers write code that humans can understand.
+</fui-blockquote>"""
+    }
+    {
+        Tag         = "fui-prose"
+        Name        = "Prose"
+        Slug        = "prose"
+        Category    = "Typography"
+        Description = "Rich-text wrapper that applies consistent typographic styles (headings, paragraphs, lists, inline code, links, blockquotes) to arbitrary slotted HTML. Ideal for rendered markdown output."
+        Attributes  = [
+            { Name="size"; Type="string"; Default="md"; Description="sm | md | lg — scales the base font size" }
+        ]
+        CssProps = [
+            { Name="--fui-prose-font";  Description="Font family for body text (default Sora)" }
+            { Name="--fui-prose-color"; Description="Base text colour" }
+            { Name="--fui-prose-size";  Description="Base font size" }
+            { Name="--fui-prose-width"; Description="Max width constraint (default 68ch)" }
+        ]
+        Events   = []
+        HtmlUsage = """<fui-prose>
+  <h2>Getting started</h2>
+  <p>Install via npm: <code>npm install fui</code></p>
+  <ul>
+    <li>Drop the script tag into your page.</li>
+    <li>Use <code>&lt;fui-*&gt;</code> elements anywhere in your HTML.</li>
+  </ul>
+  <blockquote>Zero framework dependencies required.</blockquote>
+</fui-prose>"""
+    }
 ]
 
 // ── Lookup helpers ────────────────────────────────────────────────────────────
@@ -1649,3 +1813,10 @@ let registerAll () =
     WebComponents.FuiPagination.register ()
     WebComponents.FuiStepper.register ()
     WebComponents.FuiMenu.register ()
+    WebComponents.FuiHeading.register ()
+    WebComponents.FuiText.register ()
+    WebComponents.FuiLabel.register ()
+    WebComponents.FuiCode.register ()
+    WebComponents.FuiKbd.register ()
+    WebComponents.FuiBlockquote.register ()
+    WebComponents.FuiProse.register ()

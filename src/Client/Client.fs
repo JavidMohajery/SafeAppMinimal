@@ -146,6 +146,16 @@ let sidebar (model: Model) =
                 sidebarLink "Menu"        "#/component/navigation/menu"        model.Hash
             ]
             div [ ClassName "sidebar-group" ] [
+                div [ ClassName "sidebar-group-label" ] [ str "Typography" ]
+                sidebarLink "Heading"    "#/component/typography/heading"    model.Hash
+                sidebarLink "Text"       "#/component/typography/text"       model.Hash
+                sidebarLink "Label"      "#/component/typography/label"      model.Hash
+                sidebarLink "Code"       "#/component/typography/code"       model.Hash
+                sidebarLink "Kbd"        "#/component/typography/kbd"        model.Hash
+                sidebarLink "Blockquote" "#/component/typography/blockquote" model.Hash
+                sidebarLink "Prose"      "#/component/typography/prose"      model.Hash
+            ]
+            div [ ClassName "sidebar-group" ] [
                 div [ ClassName "sidebar-group-label" ] [ str "Examples" ]
                 sidebarLink "Counter — Elmish" "#/counter-elmish" model.Hash
                 sidebarLink "Counter — DOM"    "#/counter-dom"    model.Hash
@@ -1430,6 +1440,140 @@ let componentLivePreview (slug: string) : ReactElement list =
                 sl "Sortable + striped"
                 wc "fui-table" [ "columns", cols; "rows", rows; "sortable", ""; "striped", "" ] []
             ]
+        ] ]
+    | "heading" ->
+        let sl txt = p [ Style [ Margin "0 0 0.5rem"; FontSize "0.75rem"; CSSProp.Custom("color", "#6E6E76"); CSSProp.Custom("text-transform", "uppercase"); CSSProp.Custom("letter-spacing", "0.06em") ] ] [ str txt ]
+        [ div [ Style [ Display DisplayOptions.Flex; FlexDirection "column"; CSSProp.Custom("gap", "0.75rem") ] ] [
+            wc "fui-heading" [ "level", "1" ] [ str "Heading Level 1" ]
+            wc "fui-heading" [ "level", "2" ] [ str "Heading Level 2" ]
+            wc "fui-heading" [ "level", "3" ] [ str "Heading Level 3" ]
+            wc "fui-heading" [ "level", "4" ] [ str "Heading Level 4" ]
+            wc "fui-heading" [ "level", "5" ] [ str "Heading Level 5" ]
+            wc "fui-heading" [ "level", "6" ] [ str "Heading Level 6" ]
+            div [ Style [ MarginTop "0.5rem" ] ] [
+                sl "Colour variants"
+                wc "fui-heading" [ "level", "2"; "color", "muted"  ] [ str "Muted heading" ]
+                wc "fui-heading" [ "level", "2"; "color", "accent" ] [ str "Accent heading" ]
+            ]
+            div [] [
+                sl "Truncation"
+                div [ Style [ Width "260px" ] ] [
+                    wc "fui-heading" [ "level", "3"; "truncate", "" ] [ str "This heading is clipped at 260px wide" ]
+                ]
+            ]
+        ] ]
+    | "text" ->
+        let sl txt = p [ Style [ Margin "0 0 0.5rem"; FontSize "0.75rem"; CSSProp.Custom("color", "#6E6E76"); CSSProp.Custom("text-transform", "uppercase"); CSSProp.Custom("letter-spacing", "0.06em") ] ] [ str txt ]
+        [ div [ Style [ Display DisplayOptions.Flex; FlexDirection "column"; CSSProp.Custom("gap", "1rem") ] ] [
+            div [] [
+                sl "Sizes"
+                wc "fui-text" [ "size", "xs" ] [ str "Extra small (xs) — 0.75rem" ]
+                wc "fui-text" [ "size", "sm" ] [ str "Small (sm) — 0.875rem" ]
+                wc "fui-text" [ "size", "md" ] [ str "Medium (md) — 0.9375rem — default" ]
+                wc "fui-text" [ "size", "lg" ] [ str "Large (lg) — 1.125rem" ]
+                wc "fui-text" [ "size", "xl" ] [ str "Extra large (xl) — 1.25rem" ]
+            ]
+            div [] [
+                sl "Colour variants"
+                wc "fui-text" [] [ str "Default text colour" ]
+                wc "fui-text" [ "color", "muted"   ] [ str "Muted text" ]
+                wc "fui-text" [ "color", "accent"  ] [ str "Accent text" ]
+                wc "fui-text" [ "color", "success" ] [ str "Success text" ]
+                wc "fui-text" [ "color", "warning" ] [ str "Warning text" ]
+                wc "fui-text" [ "color", "danger"  ] [ str "Danger text" ]
+                wc "fui-text" [ "color", "info"    ] [ str "Info text" ]
+            ]
+            div [] [
+                sl "Weights"
+                wc "fui-text" [ "weight", "light"  ] [ str "Light (300)" ]
+                wc "fui-text" [ "weight", "normal" ] [ str "Normal (400)" ]
+                wc "fui-text" [ "weight", "medium" ] [ str "Medium (500)" ]
+                wc "fui-text" [ "weight", "semi"   ] [ str "Semi-bold (600)" ]
+                wc "fui-text" [ "weight", "bold"   ] [ str "Bold (700)" ]
+            ]
+        ] ]
+    | "label" ->
+        [ div [ Style [ Display DisplayOptions.Flex; FlexDirection "column"; CSSProp.Custom("gap", "1rem") ] ] [
+            div [] [
+                wc "fui-label" [] [ str "Email address" ]
+            ]
+            div [] [
+                wc "fui-label" [ "required", "" ] [ str "Password" ]
+            ]
+            div [] [
+                wc "fui-label" [ "size", "sm" ] [ str "Small label" ]
+                wc "fui-label" [ "size", "md" ] [ str "Medium label" ]
+                wc "fui-label" [ "size", "lg" ] [ str "Large label" ]
+            ]
+        ] ]
+    | "code" ->
+        [ div [ Style [ Display DisplayOptions.Flex; FlexDirection "column"; CSSProp.Custom("gap", "0.75rem") ] ] [
+            p [ Style [ Margin "0"; CSSProp.Custom("color", "#E8E8ED"); CSSProp.Custom("font-family", "Sora, sans-serif"); CSSProp.Custom("font-size", "0.9375rem"); CSSProp.Custom("line-height", "1.6") ] ] [
+                str "Run "
+                wc "fui-code" [] [ str "dotnet fable watch ." ]
+                str " to start the Fable compiler watcher."
+            ]
+            p [ Style [ Margin "0"; CSSProp.Custom("color", "#E8E8ED"); CSSProp.Custom("font-family", "Sora, sans-serif"); CSSProp.Custom("font-size", "0.9375rem"); CSSProp.Custom("line-height", "1.6") ] ] [
+                str "Set "
+                wc "fui-code" [] [ str "NODE_ENV=production" ]
+                str " before running "
+                wc "fui-code" [] [ str "npm run build" ]
+                str "."
+            ]
+            p [ Style [ Margin "0"; CSSProp.Custom("color", "#E8E8ED"); CSSProp.Custom("font-family", "Sora, sans-serif"); CSSProp.Custom("font-size", "0.9375rem"); CSSProp.Custom("line-height", "1.6") ] ] [
+                str "The entry point is "
+                wc "fui-code" [] [ str "src/Client/Client.fs" ]
+                str "."
+            ]
+        ] ]
+    | "kbd" ->
+        [ div [ Style [ Display DisplayOptions.Flex; FlexDirection "column"; CSSProp.Custom("gap", "0.75rem") ] ] [
+            p [ Style [ Margin "0"; CSSProp.Custom("color", "#E8E8ED"); CSSProp.Custom("font-family", "Sora, sans-serif"); CSSProp.Custom("font-size", "0.9375rem") ] ] [
+                str "Press "
+                wc "fui-kbd" [] [ str "Ctrl" ]
+                str " + "
+                wc "fui-kbd" [] [ str "K" ]
+                str " to open the command palette."
+            ]
+            p [ Style [ Margin "0"; CSSProp.Custom("color", "#E8E8ED"); CSSProp.Custom("font-family", "Sora, sans-serif"); CSSProp.Custom("font-size", "0.9375rem") ] ] [
+                str "Save with "
+                wc "fui-kbd" [] [ str "⌘" ]
+                str " "
+                wc "fui-kbd" [] [ str "S" ]
+                str " on Mac or "
+                wc "fui-kbd" [] [ str "Ctrl" ]
+                str " "
+                wc "fui-kbd" [] [ str "S" ]
+                str " on Windows."
+            ]
+            p [ Style [ Margin "0"; CSSProp.Custom("color", "#E8E8ED"); CSSProp.Custom("font-family", "Sora, sans-serif"); CSSProp.Custom("font-size", "0.9375rem") ] ] [
+                str "Close overlays with "
+                wc "fui-kbd" [] [ str "Esc" ]
+                str "."
+            ]
+        ] ]
+    | "blockquote" ->
+        [ div [ Style [ Display DisplayOptions.Flex; FlexDirection "column"; CSSProp.Custom("gap", "1.5rem") ] ] [
+            wc "fui-blockquote" [ "cite", "— Donald Knuth" ] [ str "Premature optimisation is the root of all evil." ]
+            wc "fui-blockquote" [ "cite", "— Martin Fowler" ] [ str "Any fool can write code that a computer can understand. Good programmers write code that humans can understand." ]
+            wc "fui-blockquote" [] [ str "The best tool for the job is the one you can actually ship with." ]
+        ] ]
+    | "prose" ->
+        [ wc "fui-prose" [] [
+            h2 [] [ str "Getting started" ]
+            p [] [ str "Install the components and drop them into any HTML page. No framework required." ]
+            h3 [] [ str "Installation" ]
+            p [] [
+                str "Add the script to your page, then use "
+                code [] [ str "<fui-*>" ]
+                str " elements anywhere in your markup."
+            ]
+            ul [] [
+                li [] [ str "Zero dependencies at runtime" ]
+                li [] [ str "Shadow DOM encapsulation — styles never leak" ]
+                li [] [ str "Full keyboard and ARIA accessibility" ]
+            ]
+            p [] [ str "All components support CSS custom properties for theming." ]
         ] ]
     | _ -> []
 

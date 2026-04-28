@@ -54,6 +54,13 @@
     <Compile Include="WebComponents/Navigation/FuiPagination.fs" />
     <Compile Include="WebComponents/Navigation/FuiStepper.fs" />
     <Compile Include="WebComponents/Navigation/FuiMenu.fs" />
+    <Compile Include="WebComponents/Typography/FuiHeading.fs" />
+    <Compile Include="WebComponents/Typography/FuiText.fs" />
+    <Compile Include="WebComponents/Typography/FuiLabel.fs" />
+    <Compile Include="WebComponents/Typography/FuiCode.fs" />
+    <Compile Include="WebComponents/Typography/FuiKbd.fs" />
+    <Compile Include="WebComponents/Typography/FuiBlockquote.fs" />
+    <Compile Include="WebComponents/Typography/FuiProse.fs" />
     <Compile Include="WebComponents/ComponentRegistry.fs" />
     <!-- Existing pages -->
     <Compile Include="Pages/CounterElmish.fs" />
