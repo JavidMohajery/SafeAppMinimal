@@ -105,6 +105,14 @@ let sidebar (model: Model) =
                 sidebarLink "AspectRatio"  "#/component/layout/aspect-ratio" model.Hash
             ]
             div [ ClassName "sidebar-group" ] [
+                div [ ClassName "sidebar-group-label" ] [ str "Overlay" ]
+                sidebarLink "Modal"         "#/component/overlay/modal"          model.Hash
+                sidebarLink "Drawer"        "#/component/overlay/drawer"         model.Hash
+                sidebarLink "Tooltip"       "#/component/overlay/tooltip"        model.Hash
+                sidebarLink "Popover"       "#/component/overlay/popover"        model.Hash
+                sidebarLink "ConfirmDialog" "#/component/overlay/confirm-dialog" model.Hash
+            ]
+            div [ ClassName "sidebar-group" ] [
                 div [ ClassName "sidebar-group-label" ] [ str "Feedback" ]
                 sidebarLink "Badge"      "#/component/feedback/badge"       model.Hash
                 sidebarLink "Spinner"    "#/component/feedback/spinner"     model.Hash
@@ -113,6 +121,21 @@ let sidebar (model: Model) =
                 sidebarLink "Skeleton"   "#/component/feedback/skeleton"    model.Hash
                 sidebarLink "Toast"      "#/component/feedback/toast"       model.Hash
                 sidebarLink "EmptyState" "#/component/feedback/empty-state" model.Hash
+            ]
+            div [ ClassName "sidebar-group" ] [
+                div [ ClassName "sidebar-group-label" ] [ str "Data Display" ]
+                sidebarLink "Card"        "#/component/data-display/card"         model.Hash
+                sidebarLink "Stat"        "#/component/data-display/stat"         model.Hash
+                sidebarLink "Avatar"      "#/component/data-display/avatar"       model.Hash
+                sidebarLink "AvatarGroup" "#/component/data-display/avatar-group" model.Hash
+                sidebarLink "Tag"         "#/component/data-display/tag"          model.Hash
+                sidebarLink "CodeBlock"   "#/component/data-display/code-block"   model.Hash
+                sidebarLink "Callout"     "#/component/data-display/callout"      model.Hash
+                sidebarLink "List"        "#/component/data-display/list"         model.Hash
+                sidebarLink "Timeline"    "#/component/data-display/timeline"     model.Hash
+                sidebarLink "Accordion"   "#/component/data-display/accordion"    model.Hash
+                sidebarLink "Carousel"    "#/component/data-display/carousel"     model.Hash
+                sidebarLink "Table"       "#/component/data-display/table"        model.Hash
             ]
             div [ ClassName "sidebar-group" ] [
                 div [ ClassName "sidebar-group-label" ] [ str "Navigation" ]
@@ -430,6 +453,33 @@ let homePage =
 
         div [ ClassName "component-preview" ] [
             div [ ClassName "preview-header" ] [
+                span [ ClassName "preview-tag" ] [ str "fui-modal · fui-drawer · fui-tooltip · fui-popover · fui-confirm-dialog" ]
+                span [ ClassName "preview-badge" ] [ str "Overlay" ]
+            ]
+            div [ ClassName "preview-body" ] [
+                div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("gap", "0.75rem"); CSSProp.Custom("flex-wrap", "wrap"); CSSProp.Custom("align-items", "flex-start") ] ] [
+                    wc "fui-modal" [ "trigger-label", "Open modal"; "title", "Example Modal"; "size", "sm" ] [
+                        p [ Style [ Margin "0"; CSSProp.Custom("color", "#A0A0A8") ] ] [ str "Modal body — slot content goes here." ]
+                        wc "fui-button" [ "slot", "footer"; "variant", "primary" ] [ str "Confirm" ]
+                        wc "fui-button" [ "slot", "footer"; "variant", "secondary" ] [ str "Cancel" ]
+                    ]
+                    wc "fui-drawer" [ "trigger-label", "Open drawer"; "title", "Settings"; "placement", "right" ] [
+                        p [ Style [ Margin "0"; CSSProp.Custom("color", "#A0A0A8") ] ] [ str "Drawer body content." ]
+                    ]
+                    wc "fui-tooltip" [ "content", "Hover me!"; "placement", "top" ] [
+                        wc "fui-button" [ "variant", "secondary" ] [ str "Hover for tip" ]
+                    ]
+                    wc "fui-popover" [ "trigger-label", "Filter"; "width", "200px" ] [
+                        p [ Style [ Margin "0 0 0.5rem"; FontSize "0.875rem"; CSSProp.Custom("color", "#A0A0A8") ] ] [ str "Popover content" ]
+                        wc "fui-button" [ "variant", "primary" ] [ str "Apply" ]
+                    ]
+                    wc "fui-confirm-dialog" [ "trigger-label", "Delete"; "title", "Delete item?"; "message", "This cannot be undone."; "confirm-label", "Delete"; "variant", "danger" ] []
+                ]
+            ]
+        ]
+
+        div [ ClassName "component-preview" ] [
+            div [ ClassName "preview-header" ] [
                 span [ ClassName "preview-tag" ] [ str "fui-badge · fui-spinner · fui-progress · fui-alert · fui-toast" ]
                 span [ ClassName "preview-badge" ] [ str "Feedback" ]
             ]
@@ -459,6 +509,38 @@ let homePage =
                     wc "fui-alert" [ "variant", "info" ] [ str "Your session will expire in 10 minutes." ]
                     wc "fui-alert" [ "variant", "success"; "title", "Changes saved" ] [ str "Your profile has been updated." ]
                     wc "fui-toast" [ "variant", "success"; "title", "Saved"; "message", "Your changes have been saved." ] []
+                ]
+            ]
+        ]
+
+        div [ ClassName "component-preview" ] [
+            div [ ClassName "preview-header" ] [
+                span [ ClassName "preview-tag" ] [ str "fui-card · fui-stat · fui-avatar · fui-tag · fui-callout · fui-code-block" ]
+                span [ ClassName "preview-badge" ] [ str "Data Display" ]
+            ]
+            div [ ClassName "preview-body" ] [
+                div [ Style [ Display DisplayOptions.Flex; FlexDirection "column"; CSSProp.Custom("gap", "1.25rem") ] ] [
+                    div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("gap", "1rem"); CSSProp.Custom("flex-wrap", "wrap") ] ] [
+                        wc "fui-stat" [ "label", "Revenue"; "value", "$48,200"; "change", "12.5%"; "trend", "up"; "description", "vs last month" ] []
+                        wc "fui-stat" [ "label", "Users";   "value", "8,412";   "change", "3.1%";  "trend", "down" ] []
+                        wc "fui-stat" [ "label", "Uptime";  "value", "99.9%" ] []
+                    ]
+                    div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("gap", "0.5rem"); CSSProp.Custom("align-items", "center"); CSSProp.Custom("flex-wrap", "wrap") ] ] [
+                        wc "fui-avatar" [ "initials", "JD" ] []
+                        wc "fui-avatar" [ "initials", "AB"; "status", "online" ] []
+                        wc "fui-avatar" [ "initials", "XY"; "size", "lg"; "status", "busy" ] []
+                        let agItems = """[{"src":"","initials":"JD"},{"src":"","initials":"AB"},{"src":"","initials":"MK"},{"src":"","initials":"RQ"},{"src":"","initials":"TW"}]"""
+                        wc "fui-avatar-group" [ "avatars", agItems ] []
+                    ]
+                    div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("gap", "0.5rem"); CSSProp.Custom("flex-wrap", "wrap"); CSSProp.Custom("align-items", "center") ] ] [
+                        wc "fui-tag" [] [ str "Default" ]
+                        wc "fui-tag" [ "variant", "success" ] [ str "Active" ]
+                        wc "fui-tag" [ "variant", "warning" ] [ str "Pending" ]
+                        wc "fui-tag" [ "variant", "danger"; "removable", "" ] [ str "Remove me" ]
+                        wc "fui-tag" [ "variant", "info"   ] [ str "Info" ]
+                        wc "fui-tag" [ "variant", "accent" ] [ str "Accent" ]
+                    ]
+                    wc "fui-callout" [ "variant", "info"; "title", "Getting started" ] [ str "Drop any fui-* component into your HTML and it works out of the box." ]
                 ]
             ]
         ]
@@ -831,6 +913,176 @@ let componentLivePreview (slug: string) : ReactElement list =
             wc "fui-menu" [ "label", "Account";       "items", items2; "placement", "bottom-end" ] []
             wc "fui-menu" [ "label", "Sort & Filter"; "items", items3 ] []
         ] ]
+    | "modal" ->
+        let sectionLabel txt = p [ Style [ Margin "0 0 0.5rem"; FontSize "0.75rem"; CSSProp.Custom("color", "#6E6E76"); CSSProp.Custom("text-transform", "uppercase"); CSSProp.Custom("letter-spacing", "0.06em") ] ] [ str txt ]
+        [ div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("gap", "0.75rem"); CSSProp.Custom("flex-wrap", "wrap") ] ] [
+            div [] [
+                sectionLabel "Small"
+                wc "fui-modal" [ "trigger-label", "Open sm"; "title", "Small modal"; "size", "sm" ] [
+                    p [ Style [ Margin "0"; CSSProp.Custom("color", "#A0A0A8") ] ] [ str "A compact modal — great for quick confirmations or short forms." ]
+                    wc "fui-button" [ "slot", "footer"; "variant", "primary" ] [ str "Save" ]
+                    wc "fui-button" [ "slot", "footer"; "variant", "secondary" ] [ str "Cancel" ]
+                ]
+            ]
+            div [] [
+                sectionLabel "Medium (default)"
+                wc "fui-modal" [ "trigger-label", "Open md"; "title", "Edit profile" ] [
+                    div [ Style [ Display DisplayOptions.Flex; FlexDirection "column"; CSSProp.Custom("gap", "0.75rem") ] ] [
+                        wc "fui-input" [ "label", "Display name"; "placeholder", "Jane Smith" ] []
+                        wc "fui-input" [ "label", "Email"; "type", "email"; "placeholder", "jane@example.com" ] []
+                        wc "fui-textarea" [ "label", "Bio"; "rows", "3"; "placeholder", "Tell us about yourself…" ] []
+                    ]
+                    wc "fui-button" [ "slot", "footer"; "variant", "primary" ] [ str "Save changes" ]
+                    wc "fui-button" [ "slot", "footer"; "variant", "secondary" ] [ str "Discard" ]
+                ]
+            ]
+            div [] [
+                sectionLabel "Large"
+                wc "fui-modal" [ "trigger-label", "Open lg"; "title", "Preview"; "size", "lg" ] [
+                    p [ Style [ Margin "0"; CSSProp.Custom("color", "#A0A0A8") ] ] [ str "Large modals work well for previews, rich editors, or data tables." ]
+                ]
+            ]
+        ] ]
+    | "drawer" ->
+        let sectionLabel txt = p [ Style [ Margin "0 0 0.5rem"; FontSize "0.75rem"; CSSProp.Custom("color", "#6E6E76"); CSSProp.Custom("text-transform", "uppercase"); CSSProp.Custom("letter-spacing", "0.06em") ] ] [ str txt ]
+        [ div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("gap", "0.75rem"); CSSProp.Custom("flex-wrap", "wrap") ] ] [
+            div [] [
+                sectionLabel "Right (default)"
+                wc "fui-drawer" [ "trigger-label", "Open right"; "title", "Settings"; "placement", "right" ] [
+                    div [ Style [ Display DisplayOptions.Flex; FlexDirection "column"; CSSProp.Custom("gap", "0.75rem") ] ] [
+                        wc "fui-toggle" [ "label", "Enable notifications"; "checked", "" ] []
+                        wc "fui-toggle" [ "label", "Dark mode" ] []
+                        wc "fui-select" [ "label", "Language"; "value", "en"; "options", """[{"value":"en","label":"English"},{"value":"fr","label":"French"},{"value":"de","label":"German"}]""" ] []
+                    ]
+                    wc "fui-button" [ "slot", "footer"; "variant", "primary" ] [ str "Save" ]
+                    wc "fui-button" [ "slot", "footer"; "variant", "secondary" ] [ str "Cancel" ]
+                ]
+            ]
+            div [] [
+                sectionLabel "Left"
+                wc "fui-drawer" [ "trigger-label", "Open left"; "title", "Navigation"; "placement", "left" ] [
+                    div [ Style [ Display DisplayOptions.Flex; FlexDirection "column"; CSSProp.Custom("gap", "0.5rem") ] ] [
+                        wc "fui-button" [ "variant", "ghost" ] [ str "Dashboard" ]
+                        wc "fui-button" [ "variant", "ghost" ] [ str "Components" ]
+                        wc "fui-button" [ "variant", "ghost" ] [ str "Settings" ]
+                    ]
+                ]
+            ]
+            div [] [
+                sectionLabel "Bottom"
+                wc "fui-drawer" [ "trigger-label", "Open bottom"; "title", "Share"; "placement", "bottom" ] [
+                    p [ Style [ Margin "0 0 0.75rem"; CSSProp.Custom("color", "#A0A0A8"); FontSize "0.875rem" ] ] [ str "Share this document with your team." ]
+                    wc "fui-input" [ "label", "Email address"; "placeholder", "team@example.com" ] []
+                    wc "fui-button" [ "slot", "footer"; "variant", "primary" ] [ str "Send invite" ]
+                ]
+            ]
+        ] ]
+    | "tooltip" ->
+        let sectionLabel txt = p [ Style [ Margin "0 0 0.75rem"; FontSize "0.75rem"; CSSProp.Custom("color", "#6E6E76"); CSSProp.Custom("text-transform", "uppercase"); CSSProp.Custom("letter-spacing", "0.06em") ] ] [ str txt ]
+        [ div [ Style [ Display DisplayOptions.Flex; FlexDirection "column"; CSSProp.Custom("gap", "2rem") ] ] [
+            div [] [
+                sectionLabel "Placements"
+                div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("gap", "1.5rem"); CSSProp.Custom("align-items", "center"); CSSProp.Custom("flex-wrap", "wrap") ] ] [
+                    wc "fui-tooltip" [ "content", "Top tooltip"; "placement", "top" ] [
+                        wc "fui-button" [ "variant", "secondary" ] [ str "Top" ]
+                    ]
+                    wc "fui-tooltip" [ "content", "Bottom tooltip"; "placement", "bottom" ] [
+                        wc "fui-button" [ "variant", "secondary" ] [ str "Bottom" ]
+                    ]
+                    wc "fui-tooltip" [ "content", "Left tooltip"; "placement", "left" ] [
+                        wc "fui-button" [ "variant", "secondary" ] [ str "Left" ]
+                    ]
+                    wc "fui-tooltip" [ "content", "Right tooltip"; "placement", "right" ] [
+                        wc "fui-button" [ "variant", "secondary" ] [ str "Right" ]
+                    ]
+                ]
+            ]
+            div [] [
+                sectionLabel "On any element"
+                div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("gap", "1.5rem"); CSSProp.Custom("align-items", "center"); CSSProp.Custom("flex-wrap", "wrap") ] ] [
+                    wc "fui-tooltip" [ "content", "Save your changes" ] [
+                        wc "fui-button" [ "variant", "primary" ] [ str "Save" ]
+                    ]
+                    wc "fui-tooltip" [ "content", "This field is required"; "placement", "right" ] [
+                        wc "fui-input" [ "label", "Email"; "placeholder", "you@example.com" ] []
+                    ]
+                    wc "fui-tooltip" [ "content", "Online"; "placement", "bottom" ] [
+                        wc "fui-badge" [ "variant", "success"; "dot", "" ] [ str "Active" ]
+                    ]
+                ]
+            ]
+        ] ]
+    | "popover" ->
+        let sectionLabel txt = p [ Style [ Margin "0 0 0.5rem"; FontSize "0.75rem"; CSSProp.Custom("color", "#6E6E76"); CSSProp.Custom("text-transform", "uppercase"); CSSProp.Custom("letter-spacing", "0.06em") ] ] [ str txt ]
+        [ div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("gap", "1.25rem"); CSSProp.Custom("flex-wrap", "wrap") ] ] [
+            div [] [
+                sectionLabel "Filter panel"
+                wc "fui-popover" [ "trigger-label", "Filter"; "width", "260px" ] [
+                    div [ Style [ Display DisplayOptions.Flex; FlexDirection "column"; CSSProp.Custom("gap", "0.75rem") ] ] [
+                        wc "fui-select" [ "label", "Status"; "placeholder", "Any"; "options", """[{"value":"active","label":"Active"},{"value":"draft","label":"Draft"},{"value":"archived","label":"Archived"}]""" ] []
+                        wc "fui-select" [ "label", "Type"; "placeholder", "Any"; "options", """[{"value":"page","label":"Page"},{"value":"post","label":"Post"},{"value":"media","label":"Media"}]""" ] []
+                        wc "fui-button" [ "variant", "primary" ] [ str "Apply filters" ]
+                    ]
+                ]
+            ]
+            div [] [
+                sectionLabel "Share panel (bottom-end)"
+                wc "fui-popover" [ "trigger-label", "Share ▾"; "placement", "bottom-end"; "width", "260px" ] [
+                    p [ Style [ Margin "0 0 0.625rem"; FontSize "0.875rem"; CSSProp.Custom("color", "#A0A0A8") ] ] [ str "Invite team members" ]
+                    wc "fui-input" [ "placeholder", "name@example.com" ] []
+                    div [ Style [ MarginTop "0.75rem"; Display DisplayOptions.Flex; CSSProp.Custom("gap", "0.5rem") ] ] [
+                        wc "fui-button" [ "variant", "primary" ] [ str "Send" ]
+                        wc "fui-button" [ "variant", "secondary" ] [ str "Copy link" ]
+                    ]
+                ]
+            ]
+            div [] [
+                sectionLabel "Info popover"
+                wc "fui-popover" [ "trigger-label", "What is this?"; "width", "240px" ] [
+                    p [ Style [ Margin "0"; FontSize "0.875rem"; LineHeight "1.6"; CSSProp.Custom("color", "#A0A0A8") ] ] [ str "Popovers accept any slotted HTML — text, forms, lists, or custom components." ]
+                ]
+            ]
+        ] ]
+    | "confirm-dialog" ->
+        let sectionLabel txt = p [ Style [ Margin "0 0 0.5rem"; FontSize "0.75rem"; CSSProp.Custom("color", "#6E6E76"); CSSProp.Custom("text-transform", "uppercase"); CSSProp.Custom("letter-spacing", "0.06em") ] ] [ str txt ]
+        [ div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("gap", "1.25rem"); CSSProp.Custom("flex-wrap", "wrap") ] ] [
+            div [] [
+                sectionLabel "Default variant"
+                wc "fui-confirm-dialog" [
+                    "trigger-label",  "Archive"
+                    "title",          "Archive this project?"
+                    "message",        "This will move it out of your active workspace."
+                    "confirm-label",  "Archive"
+                    "cancel-label",   "Keep active"
+                ] []
+            ]
+            div [] [
+                sectionLabel "Danger variant"
+                wc "fui-confirm-dialog" [
+                    "trigger-label",  "Delete account"
+                    "title",          "Delete your account?"
+                    "message",        "This action is permanent. All data will be erased."
+                    "confirm-label",  "Yes, delete"
+                    "variant",        "danger"
+                ] []
+            ]
+            div [] [
+                sectionLabel "With slot content"
+                wc "fui-confirm-dialog" [
+                    "trigger-label",  "Remove member"
+                    "title",          "Remove Jane Smith?"
+                    "confirm-label",  "Remove"
+                    "variant",        "danger"
+                ] [
+                    p [ Style [ Margin "0 0 0.5rem"; FontSize "0.875rem"; CSSProp.Custom("color", "#A0A0A8") ] ] [ str "Jane will lose access to:" ]
+                    ul [ Style [ Margin "0"; Padding "0 0 0 1.25rem"; FontSize "0.875rem"; CSSProp.Custom("color", "#A0A0A8") ] ] [
+                        li [] [ str "All shared projects" ]
+                        li [] [ str "Team settings" ]
+                        li [] [ str "Billing information" ]
+                    ]
+                ]
+            ]
+        ] ]
     | "badge" ->
         [ div [ Style [ Display DisplayOptions.Flex; FlexDirection "column"; CSSProp.Custom("gap", "1.25rem") ] ] [
             div [] [
@@ -956,6 +1208,227 @@ let componentLivePreview (slug: string) : ReactElement list =
                     span [ HTMLAttr.Custom("slot", "icon") ] [ str "📭" ]
                     wc "fui-button" ([ "slot", "action"; "variant", "primary" ]) [ str "Compose message" ]
                 ]
+            ]
+        ] ]
+    | "card" ->
+        let sl txt = p [ Style [ Margin "0 0 0.5rem"; FontSize "0.75rem"; CSSProp.Custom("color", "#6E6E76"); CSSProp.Custom("text-transform", "uppercase"); CSSProp.Custom("letter-spacing", "0.06em") ] ] [ str txt ]
+        [ div [ Style [ Display DisplayOptions.Flex; FlexDirection "column"; CSSProp.Custom("gap", "1.5rem") ] ] [
+            div [] [
+                sl "Default — header / body / footer slots"
+                wc "fui-card" [] [
+                    span [ HTMLAttr.Custom("slot", "header") ] [ str "Card Title" ]
+                    p [ Style [ Margin "0" ] ] [ str "Body content rendered in the default slot. Add anything here." ]
+                    div [ HTMLAttr.Custom("slot", "footer") ] [
+                        wc "fui-button" [ "variant", "primary";   "size", "sm" ] [ str "Save" ]
+                        wc "fui-button" [ "variant", "secondary"; "size", "sm" ] [ str "Cancel" ]
+                    ]
+                ]
+            ]
+            div [] [
+                sl "Variants"
+                div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("gap", "1rem"); CSSProp.Custom("flex-wrap", "wrap") ] ] [
+                    div [ Style [ CSSProp.Custom("flex", "1"); CSSProp.Custom("min-width", "160px") ] ] [
+                        sl "Elevated"
+                        wc "fui-card" [ "variant", "elevated" ] [
+                            p [ Style [ Margin "0" ] ] [ str "Elevated — deeper shadow." ]
+                        ]
+                    ]
+                    div [ Style [ CSSProp.Custom("flex", "1"); CSSProp.Custom("min-width", "160px") ] ] [
+                        sl "Outline"
+                        wc "fui-card" [ "variant", "outline" ] [
+                            p [ Style [ Margin "0" ] ] [ str "Outline — transparent background." ]
+                        ]
+                    ]
+                    div [ Style [ CSSProp.Custom("flex", "1"); CSSProp.Custom("min-width", "160px") ] ] [
+                        sl "Ghost"
+                        wc "fui-card" [ "variant", "ghost" ] [
+                            p [ Style [ Margin "0" ] ] [ str "Ghost — no border." ]
+                        ]
+                    ]
+                ]
+            ]
+            div [] [
+                sl "Padding sizes"
+                div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("gap", "1rem"); CSSProp.Custom("flex-wrap", "wrap") ] ] [
+                    div [ Style [ CSSProp.Custom("flex", "1") ] ] [
+                        wc "fui-card" [ "padding", "sm" ] [
+                            span [ HTMLAttr.Custom("slot", "header") ] [ str "Small (sm)" ]
+                            p [ Style [ Margin "0" ] ] [ str "padding=\"sm\"" ]
+                        ]
+                    ]
+                    div [ Style [ CSSProp.Custom("flex", "1") ] ] [
+                        wc "fui-card" [ "padding", "lg" ] [
+                            span [ HTMLAttr.Custom("slot", "header") ] [ str "Large (lg)" ]
+                            p [ Style [ Margin "0" ] ] [ str "padding=\"lg\"" ]
+                        ]
+                    ]
+                    div [ Style [ CSSProp.Custom("flex", "1") ] ] [
+                        wc "fui-card" [ "padding", "none" ] [
+                            span [ HTMLAttr.Custom("slot", "header") ] [ str "None" ]
+                            p [ Style [ Margin "0" ] ] [ str "padding=\"none\"" ]
+                        ]
+                    ]
+                ]
+            ]
+        ] ]
+    | "stat" ->
+        [ div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("gap", "1rem"); CSSProp.Custom("flex-wrap", "wrap") ] ] [
+            wc "fui-stat" [ "label", "Revenue";    "value", "$48,200"; "change", "12.5%"; "trend", "up";   "description", "vs last month" ] []
+            wc "fui-stat" [ "label", "Users";      "value", "8,412";   "change", "3.1%";  "trend", "down" ] []
+            wc "fui-stat" [ "label", "Error rate"; "value", "0.02%";   "change", "stable"; "trend", "flat" ] []
+            wc "fui-stat" [ "label", "Uptime";     "value", "99.9%" ] []
+        ] ]
+    | "avatar" ->
+        let sl txt = p [ Style [ Margin "0 0 0.5rem"; FontSize "0.75rem"; CSSProp.Custom("color", "#6E6E76"); CSSProp.Custom("text-transform", "uppercase"); CSSProp.Custom("letter-spacing", "0.06em") ] ] [ str txt ]
+        [ div [ Style [ Display DisplayOptions.Flex; FlexDirection "column"; CSSProp.Custom("gap", "1.5rem") ] ] [
+            div [] [
+                sl "Sizes"
+                div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("gap", "0.75rem"); CSSProp.Custom("align-items", "center") ] ] [
+                    wc "fui-avatar" [ "initials", "XS"; "size", "xs" ] []
+                    wc "fui-avatar" [ "initials", "SM"; "size", "sm" ] []
+                    wc "fui-avatar" [ "initials", "MD" ] []
+                    wc "fui-avatar" [ "initials", "LG"; "size", "lg" ] []
+                    wc "fui-avatar" [ "initials", "XL"; "size", "xl" ] []
+                ]
+            ]
+            div [] [
+                sl "Status indicators"
+                div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("gap", "0.75rem"); CSSProp.Custom("align-items", "center") ] ] [
+                    wc "fui-avatar" [ "initials", "ON"; "status", "online"  ] []
+                    wc "fui-avatar" [ "initials", "OF"; "status", "offline" ] []
+                    wc "fui-avatar" [ "initials", "AW"; "status", "away"    ] []
+                    wc "fui-avatar" [ "initials", "BZ"; "status", "busy"    ] []
+                ]
+            ]
+        ] ]
+    | "avatar-group" ->
+        let sl txt = p [ Style [ Margin "0 0 0.5rem"; FontSize "0.75rem"; CSSProp.Custom("color", "#6E6E76"); CSSProp.Custom("text-transform", "uppercase"); CSSProp.Custom("letter-spacing", "0.06em") ] ] [ str txt ]
+        let av5 = """[{"src":"","initials":"JD"},{"src":"","initials":"AB"},{"src":"","initials":"MK"},{"src":"","initials":"RQ"},{"src":"","initials":"TW"}]"""
+        let av6 = """[{"src":"","initials":"AA"},{"src":"","initials":"BB"},{"src":"","initials":"CC"},{"src":"","initials":"DD"},{"src":"","initials":"EE"},{"src":"","initials":"FF"}]"""
+        [ div [ Style [ Display DisplayOptions.Flex; FlexDirection "column"; CSSProp.Custom("gap", "1.5rem") ] ] [
+            div [] [
+                sl "Default — max 4"
+                wc "fui-avatar-group" [ "avatars", av5 ] []
+            ]
+            div [] [
+                sl "Max 3, 6 avatars → +3 overflow"
+                wc "fui-avatar-group" [ "avatars", av6; "max", "3" ] []
+            ]
+            div [] [
+                sl "Sizes"
+                div [ Style [ Display DisplayOptions.Flex; FlexDirection "column"; CSSProp.Custom("gap", "0.75rem") ] ] [
+                    wc "fui-avatar-group" [ "avatars", av5; "size", "sm" ] []
+                    wc "fui-avatar-group" [ "avatars", av5 ] []
+                    wc "fui-avatar-group" [ "avatars", av5; "size", "lg" ] []
+                ]
+            ]
+        ] ]
+    | "tag" ->
+        let sl txt = p [ Style [ Margin "0 0 0.5rem"; FontSize "0.75rem"; CSSProp.Custom("color", "#6E6E76"); CSSProp.Custom("text-transform", "uppercase"); CSSProp.Custom("letter-spacing", "0.06em") ] ] [ str txt ]
+        [ div [ Style [ Display DisplayOptions.Flex; FlexDirection "column"; CSSProp.Custom("gap", "1.25rem") ] ] [
+            div [] [
+                sl "Variants"
+                div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("gap", "0.5rem"); CSSProp.Custom("flex-wrap", "wrap"); CSSProp.Custom("align-items", "center") ] ] [
+                    wc "fui-tag" [] [ str "Neutral" ]
+                    wc "fui-tag" [ "variant", "success" ] [ str "Success" ]
+                    wc "fui-tag" [ "variant", "warning" ] [ str "Warning" ]
+                    wc "fui-tag" [ "variant", "danger"  ] [ str "Danger"  ]
+                    wc "fui-tag" [ "variant", "info"    ] [ str "Info"    ]
+                    wc "fui-tag" [ "variant", "accent"  ] [ str "Accent"  ]
+                ]
+            ]
+            div [] [
+                sl "Sizes"
+                div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("gap", "0.5rem"); CSSProp.Custom("align-items", "center") ] ] [
+                    wc "fui-tag" [ "variant", "accent"; "size", "sm" ] [ str "Small" ]
+                    wc "fui-tag" [ "variant", "accent" ] [ str "Medium" ]
+                    wc "fui-tag" [ "variant", "accent"; "size", "lg" ] [ str "Large" ]
+                ]
+            ]
+            div [] [
+                sl "Removable"
+                div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("gap", "0.5rem"); CSSProp.Custom("flex-wrap", "wrap"); CSSProp.Custom("align-items", "center") ] ] [
+                    wc "fui-tag" [ "removable", "" ] [ str "React" ]
+                    wc "fui-tag" [ "variant", "success"; "removable", "" ] [ str "TypeScript" ]
+                    wc "fui-tag" [ "variant", "accent";  "removable", "" ] [ str "F#" ]
+                    wc "fui-tag" [ "variant", "info";    "removable", "" ] [ str "Fable" ]
+                ]
+            ]
+        ] ]
+    | "code-block" ->
+        let fsCode  = "let add x y = x + y\nprintfn \"Result: %d\" (add 3 4)"
+        let cssCode = ".button {\n    background: #7C3AED;\n    border-radius: 6px;\n    color: #fff;\n    padding: 0.5rem 1rem;\n}"
+        let sqlCode = "SELECT id, email, role\nFROM users\nWHERE active = true\nORDER BY email;"
+        [ div [ Style [ Display DisplayOptions.Flex; FlexDirection "column"; CSSProp.Custom("gap", "1rem") ] ] [
+            wc "fui-code-block" [ "language", "fsharp"; "code", fsCode  ] []
+            wc "fui-code-block" [ "language", "css";    "code", cssCode ] []
+            wc "fui-code-block" [ "language", "sql";    "code", sqlCode ] []
+            wc "fui-code-block" [ "code", "npm install && npm run start" ] []
+        ] ]
+    | "callout" ->
+        [ div [ Style [ Display DisplayOptions.Flex; FlexDirection "column"; CSSProp.Custom("gap", "0.75rem") ] ] [
+            wc "fui-callout" [ "variant", "info";    "title", "Information" ] [ str "This is an informational callout with a blue accent stripe." ]
+            wc "fui-callout" [ "variant", "success"; "title", "Success"     ] [ str "Operation completed successfully — all checks passed." ]
+            wc "fui-callout" [ "variant", "warning"; "title", "Warning"     ] [ str "Please review before proceeding — some items need attention." ]
+            wc "fui-callout" [ "variant", "danger";  "title", "Error"       ] [ str "Something went wrong. Check the logs for details." ]
+            wc "fui-callout" [ "variant", "note";    "title", "Note"        ] [ str "This component uses a purple accent colour for editorial notes." ]
+            wc "fui-callout" [ "variant", "info" ] [ str "Callout without a title — body content only via the default slot." ]
+        ] ]
+    | "list" ->
+        let items = """["Build the UI components","Add backend endpoints","Write unit tests","Deploy to production"]"""
+        let sl txt = p [ Style [ Margin "0 0 0.5rem"; FontSize "0.75rem"; CSSProp.Custom("color", "#6E6E76"); CSSProp.Custom("text-transform", "uppercase"); CSSProp.Custom("letter-spacing", "0.06em") ] ] [ str txt ]
+        [ div [ Style [ Display DisplayOptions.Flex; FlexDirection "column"; CSSProp.Custom("gap", "1.5rem") ] ] [
+            div [] [ sl "Default (unordered)"; wc "fui-list" [ "items", items ] [] ]
+            div [] [ sl "Ordered";             wc "fui-list" [ "items", items; "ordered", "" ] [] ]
+            div [] [ sl "Bordered";            wc "fui-list" [ "items", items; "variant", "bordered" ] [] ]
+            div [] [ sl "Striped";             wc "fui-list" [ "items", items; "variant", "striped"  ] [] ]
+            div [] [ sl "Bullet";              wc "fui-list" [ "items", items; "variant", "bullet"   ] [] ]
+        ] ]
+    | "timeline" ->
+        let items = """[{"label":"Project started","description":"Initial planning and design phase completed.","date":"Jan 2025","icon":""},{"label":"Alpha release","description":"First internal build shipped to QA.","date":"Mar 2025","icon":""},{"label":"Beta launch","description":"Public beta released with 500 early-access users.","date":"Jun 2025","icon":""},{"label":"v1.0 shipped","description":"General availability — stable release.","date":"Sep 2025","icon":""}]"""
+        [ wc "fui-timeline" [ "items", items ] [] ]
+    | "accordion" ->
+        let items = """[{"label":"What is FableUI?","content":"FableUI is a library of standalone Web Components built with Fable and Lit. Drop any fui-* element into any HTML page and it works immediately."},{"label":"Do I need a JavaScript framework?","content":"No — every component is a native Custom Element and works in plain HTML, React, Vue, Svelte, or any other environment."},{"label":"Can I theme the components?","content":"Yes. All components expose CSS custom properties (--fui-*) so you can override colours, fonts, radii, and spacing from a stylesheet or inline style."},{"label":"How does sorting work in fui-table?","content":"Column sorting is done client-side by the component. Set sortable on the element and mark individual columns as sortable: true in the columns JSON."}]"""
+        let sl txt = p [ Style [ Margin "0 0 0.5rem"; FontSize "0.75rem"; CSSProp.Custom("color", "#6E6E76"); CSSProp.Custom("text-transform", "uppercase"); CSSProp.Custom("letter-spacing", "0.06em") ] ] [ str txt ]
+        [ div [ Style [ Display DisplayOptions.Flex; FlexDirection "column"; CSSProp.Custom("gap", "2rem") ] ] [
+            div [] [
+                sl "Single open (default)"
+                wc "fui-accordion" [ "items", items ] []
+            ]
+            div [] [
+                sl "Multiple open"
+                wc "fui-accordion" [ "items", items; "multiple", "" ] []
+            ]
+        ] ]
+    | "carousel" ->
+        let items = """[{"title":"Components","description":"Drop any fui-* element into your HTML and it works immediately — no build step required."},{"title":"Theming","description":"Every component exposes CSS custom properties for full design token control."},{"title":"Accessibility","description":"All interactive elements meet WCAG 2.1 AA keyboard and ARIA requirements."}]"""
+        let sl txt = p [ Style [ Margin "0 0 0.5rem"; FontSize "0.75rem"; CSSProp.Custom("color", "#6E6E76"); CSSProp.Custom("text-transform", "uppercase"); CSSProp.Custom("letter-spacing", "0.06em") ] ] [ str txt ]
+        [ div [ Style [ Display DisplayOptions.Flex; FlexDirection "column"; CSSProp.Custom("gap", "2rem") ] ] [
+            div [] [
+                sl "With dot navigation (default)"
+                wc "fui-carousel" [ "items", items ] []
+            ]
+            div [] [
+                sl "Loop enabled"
+                wc "fui-carousel" [ "items", items; "loop", "" ] []
+            ]
+        ] ]
+    | "table" ->
+        let cols = """[{"key":"name","label":"Name","sortable":true},{"key":"email","label":"Email","sortable":true},{"key":"role","label":"Role","sortable":false}]"""
+        let rows = """[["Alice Chen","alice@example.com","Admin"],["Bob Smith","bob@example.com","Developer"],["Carol Davis","carol@example.com","Designer"],["Dan Wilson","dan@example.com","Developer"],["Eve Martinez","eve@example.com","Admin"]]"""
+        let sl txt = p [ Style [ Margin "0 0 0.5rem"; FontSize "0.75rem"; CSSProp.Custom("color", "#6E6E76"); CSSProp.Custom("text-transform", "uppercase"); CSSProp.Custom("letter-spacing", "0.06em") ] ] [ str txt ]
+        [ div [ Style [ Display DisplayOptions.Flex; FlexDirection "column"; CSSProp.Custom("gap", "2rem") ] ] [
+            div [] [
+                sl "Sortable — click Name or Email header"
+                wc "fui-table" [ "columns", cols; "rows", rows; "sortable", "" ] []
+            ]
+            div [] [
+                sl "Striped rows"
+                wc "fui-table" [ "columns", cols; "rows", rows; "striped", "" ] []
+            ]
+            div [] [
+                sl "Sortable + striped"
+                wc "fui-table" [ "columns", cols; "rows", rows; "sortable", ""; "striped", "" ] []
             ]
         ] ]
     | _ -> []

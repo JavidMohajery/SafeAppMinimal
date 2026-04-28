@@ -675,6 +675,553 @@ let all : ComponentMeta list = [
   <fui-button slot="action" variant="primary">Compose message</fui-button>
 </fui-empty-state>"""
     }
+    // ── Overlay & Floating ────────────────────────────────────────────────────
+    {
+        Tag         = "fui-modal"
+        Name        = "Modal"
+        Slug        = "modal"
+        Category    = "Overlay"
+        Description = "A modal dialog with a backdrop, header, scrollable body, and footer slot. Click the trigger button to open; close by clicking the backdrop or the × button. Fires fui-open and fui-close events."
+        Attributes  = [
+            { Name="trigger-label"; Type="string"; Default="Open"; Description="Label on the trigger button that opens the dialog" }
+            { Name="title";         Type="string"; Default="";     Description="Heading rendered in the modal header" }
+            { Name="size";          Type="string"; Default="md";   Description="sm (400px) | md (560px) | lg (720px)" }
+        ]
+        CssProps = [
+            { Name="--fui-modal-bg";           Description="Panel background colour" }
+            { Name="--fui-modal-border";       Description="Panel and divider border colour" }
+            { Name="--fui-modal-title-color";  Description="Header title colour" }
+            { Name="--fui-modal-color";        Description="Body text colour" }
+            { Name="--fui-modal-close-color";  Description="Close button colour" }
+            { Name="--fui-modal-radius";       Description="Panel border radius" }
+            { Name="--fui-modal-trigger-bg";   Description="Trigger button background" }
+            { Name="--fui-modal-trigger-color";Description="Trigger button text colour" }
+            { Name="--fui-modal-font";         Description="Font family" }
+        ]
+        Events = [
+            { Name="fui-open";  Description="Fired when the dialog opens" }
+            { Name="fui-close"; Description="Fired when the dialog closes (backdrop or × button)" }
+        ]
+        HtmlUsage = """<fui-modal trigger-label="Open modal" title="Confirm action" size="md">
+  <p>Modal body content goes here. The footer slot accepts action buttons.</p>
+  <fui-button slot="footer" variant="primary">Save</fui-button>
+  <fui-button slot="footer" variant="secondary">Cancel</fui-button>
+</fui-modal>
+
+<!-- Small modal -->
+<fui-modal trigger-label="Quick view" title="Details" size="sm">
+  <p>Compact content.</p>
+</fui-modal>"""
+    }
+    {
+        Tag         = "fui-drawer"
+        Name        = "Drawer"
+        Slug        = "drawer"
+        Category    = "Overlay"
+        Description = "A slide-in panel anchored to one edge of the viewport. Four placement options (right, left, top, bottom). Closes on backdrop click or × button. Fires fui-open and fui-close events."
+        Attributes  = [
+            { Name="trigger-label"; Type="string"; Default="Open drawer"; Description="Label on the trigger button that opens the drawer" }
+            { Name="title";         Type="string"; Default="";            Description="Heading rendered in the drawer header" }
+            { Name="placement";     Type="string"; Default="right";       Description="right | left | top | bottom" }
+        ]
+        CssProps = [
+            { Name="--fui-drawer-bg";             Description="Panel background colour" }
+            { Name="--fui-drawer-border";         Description="Panel and divider border colour" }
+            { Name="--fui-drawer-title-color";    Description="Header title colour" }
+            { Name="--fui-drawer-color";          Description="Body text colour" }
+            { Name="--fui-drawer-close-color";    Description="Close button colour" }
+            { Name="--fui-drawer-size";           Description="Panel width (left/right) or height (top/bottom) — default 400px / 360px" }
+            { Name="--fui-drawer-trigger-bg";     Description="Trigger button background" }
+            { Name="--fui-drawer-trigger-border"; Description="Trigger button border colour" }
+            { Name="--fui-drawer-trigger-color";  Description="Trigger button text colour" }
+            { Name="--fui-drawer-font";           Description="Font family" }
+        ]
+        Events = [
+            { Name="fui-open";  Description="Fired when the drawer opens" }
+            { Name="fui-close"; Description="Fired when the drawer closes" }
+        ]
+        HtmlUsage = """<!-- Right drawer (default) -->
+<fui-drawer trigger-label="Open settings" title="Settings" placement="right">
+  <p>Drawer body content — scrollable when tall.</p>
+  <fui-button slot="footer" variant="primary">Apply</fui-button>
+</fui-drawer>
+
+<!-- Left navigation drawer -->
+<fui-drawer trigger-label="Open nav" title="Navigation" placement="left">
+  <p>Nav links go here.</p>
+</fui-drawer>
+
+<!-- Bottom sheet -->
+<fui-drawer trigger-label="Open sheet" title="Options" placement="bottom">
+  <p>Mobile-style bottom sheet.</p>
+</fui-drawer>"""
+    }
+    {
+        Tag         = "fui-tooltip"
+        Name        = "Tooltip"
+        Slug        = "tooltip"
+        Category    = "Overlay"
+        Description = "Lightweight text hint shown on hover or focus above, below, left, or right of any slotted trigger element. No JavaScript positioning — uses CSS absolute placement."
+        Attributes  = [
+            { Name="content";   Type="string"; Default="";    Description="Tooltip text to display" }
+            { Name="placement"; Type="string"; Default="top"; Description="top | bottom | left | right" }
+        ]
+        CssProps = [
+            { Name="--fui-tooltip-bg";     Description="Tooltip background colour" }
+            { Name="--fui-tooltip-color";  Description="Tooltip text colour" }
+            { Name="--fui-tooltip-radius"; Description="Tooltip border radius" }
+            { Name="--fui-tooltip-font";   Description="Font family" }
+        ]
+        Events   = []
+        HtmlUsage = """<!-- Top (default) -->
+<fui-tooltip content="Save your changes">
+  <fui-button variant="primary">Save</fui-button>
+</fui-tooltip>
+
+<!-- Bottom -->
+<fui-tooltip content="Opens in a new tab" placement="bottom">
+  <a href="#">Docs ↗</a>
+</fui-tooltip>
+
+<!-- Right -->
+<fui-tooltip content="This field is required" placement="right">
+  <fui-input label="Email"></fui-input>
+</fui-tooltip>"""
+    }
+    {
+        Tag         = "fui-popover"
+        Name        = "Popover"
+        Slug        = "popover"
+        Category    = "Overlay"
+        Description = "A floating panel anchored below (or above) a trigger button. Unlike Menu, the popover body accepts arbitrary slotted HTML — rich content, forms, or lists. Closes on outside click."
+        Attributes  = [
+            { Name="trigger-label"; Type="string"; Default="Options";      Description="Label on the trigger button" }
+            { Name="placement";     Type="string"; Default="bottom-start"; Description="bottom-start | bottom-end | top-start | top-end" }
+            { Name="width";         Type="string"; Default="";             Description="Explicit panel width (e.g. 280px) — defaults to content width" }
+        ]
+        CssProps = [
+            { Name="--fui-popover-bg";             Description="Panel background colour" }
+            { Name="--fui-popover-border";         Description="Panel border colour" }
+            { Name="--fui-popover-radius";         Description="Panel border radius" }
+            { Name="--fui-popover-trigger-bg";     Description="Trigger button background" }
+            { Name="--fui-popover-trigger-border"; Description="Trigger button border colour" }
+            { Name="--fui-popover-trigger-color";  Description="Trigger button text colour" }
+            { Name="--fui-popover-font";           Description="Font family" }
+        ]
+        Events = [
+            { Name="fui-open";  Description="Fired when the panel opens" }
+            { Name="fui-close"; Description="Fired when the panel closes" }
+        ]
+        HtmlUsage = """<fui-popover trigger-label="Filter" width="260px">
+  <fui-stack direction="column" gap="0.75rem">
+    <fui-select label="Status" options='[{"value":"active","label":"Active"},{"value":"archived","label":"Archived"}]'></fui-select>
+    <fui-button variant="primary">Apply</fui-button>
+  </fui-stack>
+</fui-popover>
+
+<fui-popover trigger-label="Share" placement="bottom-end" width="240px">
+  <p style="margin:0 0 0.75rem;font-size:0.875rem;color:#A0A0A8">Share this document</p>
+  <fui-input placeholder="Enter email..."></fui-input>
+</fui-popover>"""
+    }
+    {
+        Tag         = "fui-confirm-dialog"
+        Name        = "ConfirmDialog"
+        Slug        = "confirm-dialog"
+        Category    = "Overlay"
+        Description = "A focused confirmation dialog with title, optional message, and two action buttons. Use variant=\"danger\" for destructive confirmations — the trigger and confirm button both turn red. Fires fui-confirm or fui-cancel."
+        Attributes  = [
+            { Name="trigger-label";  Type="string"; Default="Delete";        Description="Label on the trigger button" }
+            { Name="title";          Type="string"; Default="Are you sure?"; Description="Dialog heading" }
+            { Name="message";        Type="string"; Default="";              Description="Supporting text below the title; or use the default slot for rich content" }
+            { Name="confirm-label";  Type="string"; Default="Confirm";       Description="Label on the confirm (primary action) button" }
+            { Name="cancel-label";   Type="string"; Default="Cancel";        Description="Label on the cancel button" }
+            { Name="variant";        Type="string"; Default="default";       Description="default | danger — danger styles trigger and confirm button red" }
+        ]
+        CssProps = [
+            { Name="--fui-cd-bg";           Description="Panel background colour" }
+            { Name="--fui-cd-border";       Description="Panel and divider border colour" }
+            { Name="--fui-cd-title-color";  Description="Title text colour" }
+            { Name="--fui-cd-color";        Description="Body text colour" }
+            { Name="--fui-cd-radius";       Description="Panel border radius" }
+            { Name="--fui-cd-font";         Description="Font family" }
+        ]
+        Events = [
+            { Name="fui-open";    Description="Fired when the dialog opens" }
+            { Name="fui-confirm"; Description="Fired when the confirm button is clicked" }
+            { Name="fui-cancel";  Description="Fired when the cancel button is clicked or the backdrop is clicked" }
+        ]
+        HtmlUsage = """<!-- Default confirm -->
+<fui-confirm-dialog
+  trigger-label="Archive"
+  title="Archive this project?"
+  message="This will remove it from your active list."
+  confirm-label="Archive"
+  cancel-label="Keep it">
+</fui-confirm-dialog>
+
+<!-- Danger variant — destructive action -->
+<fui-confirm-dialog
+  trigger-label="Delete account"
+  title="Delete your account?"
+  message="This action cannot be undone. All data will be permanently removed."
+  confirm-label="Yes, delete"
+  variant="danger">
+</fui-confirm-dialog>"""
+    }
+    // ── Data Display ──────────────────────────────────────────────────────────────
+    {
+        Tag         = "fui-card"
+        Name        = "Card"
+        Slug        = "card"
+        Category    = "Data Display"
+        Description = "A flexible container with optional header, body, and footer slots. Four variants (default, elevated, outline, ghost) and four padding sizes control visual weight."
+        Attributes  = [
+            { Name="variant"; Type="string"; Default="default"; Description="default | elevated | outline | ghost" }
+            { Name="padding"; Type="string"; Default="md";      Description="sm | md | lg | none" }
+        ]
+        CssProps = [
+            { Name="--fui-card-bg";           Description="Card background colour" }
+            { Name="--fui-card-border";       Description="Card border colour" }
+            { Name="--fui-card-divider";      Description="Header and footer divider line colour" }
+            { Name="--fui-card-radius";       Description="Border radius" }
+            { Name="--fui-card-header-color"; Description="Header text colour" }
+            { Name="--fui-card-color";        Description="Body text colour" }
+            { Name="--fui-card-font";         Description="Font family" }
+        ]
+        Events   = []
+        HtmlUsage = """<fui-card>
+  <span slot="header">Card title</span>
+  <p>Body content — default slot.</p>
+  <div slot="footer">
+    <fui-button variant="primary" size="sm">Save</fui-button>
+  </div>
+</fui-card>
+
+<!-- Variants -->
+<fui-card variant="elevated"><p>Elevated — deeper shadow</p></fui-card>
+<fui-card variant="outline"><p>Outline — transparent background</p></fui-card>
+<fui-card variant="ghost"><p>Ghost — no border</p></fui-card>
+
+<!-- Padding sizes -->
+<fui-card padding="sm"><p>Small padding</p></fui-card>
+<fui-card padding="lg"><p>Large padding</p></fui-card>"""
+    }
+    {
+        Tag         = "fui-stat"
+        Name        = "Stat"
+        Slug        = "stat"
+        Category    = "Data Display"
+        Description = "Compact metric card showing a label, large value, optional change badge coloured by trend direction, and a supporting description line."
+        Attributes  = [
+            { Name="label";       Type="string"; Default="";     Description="Metric label (e.g. Revenue)" }
+            { Name="value";       Type="string"; Default="";     Description="Primary value in large type (e.g. $48,200)" }
+            { Name="change";      Type="string"; Default="";     Description="Change amount or percentage for the badge (e.g. 12.5%)" }
+            { Name="trend";       Type="string"; Default="flat"; Description="up | down | flat — colours the badge green, red, or neutral" }
+            { Name="description"; Type="string"; Default="";     Description="Small supporting text below the value row (e.g. vs last month)" }
+        ]
+        CssProps = [
+            { Name="--fui-stat-bg";          Description="Card background colour" }
+            { Name="--fui-stat-border";      Description="Card border colour" }
+            { Name="--fui-stat-radius";      Description="Card border radius" }
+            { Name="--fui-stat-label-color"; Description="Label text colour" }
+            { Name="--fui-stat-value-color"; Description="Value text colour" }
+            { Name="--fui-stat-desc-color";  Description="Description text colour" }
+            { Name="--fui-stat-font";        Description="Font family" }
+        ]
+        Events   = []
+        HtmlUsage = """<fui-stat label="Revenue" value="$48,200" change="12.5%" trend="up" description="vs last month"></fui-stat>
+<fui-stat label="Users"   value="8,412"  change="3.1%"  trend="down"></fui-stat>
+<fui-stat label="Uptime"  value="99.9%"></fui-stat>"""
+    }
+    {
+        Tag         = "fui-avatar"
+        Name        = "Avatar"
+        Slug        = "avatar"
+        Category    = "Data Display"
+        Description = "Circular user representation. Shows an image when src is provided; falls back to styled initials. Five sizes and four status-indicator dots (online, offline, away, busy)."
+        Attributes  = [
+            { Name="src";      Type="string"; Default="";   Description="Image URL — empty triggers the initials fallback" }
+            { Name="initials"; Type="string"; Default="?";  Description="One or two letters shown when no image is available" }
+            { Name="size";     Type="string"; Default="md"; Description="xs | sm | md | lg | xl" }
+            { Name="status";   Type="string"; Default="";   Description="online | offline | away | busy — shows a colour dot; omit to hide" }
+        ]
+        CssProps = [
+            { Name="--fui-avatar-bg";            Description="Initials background colour" }
+            { Name="--fui-avatar-color";         Description="Initials text colour" }
+            { Name="--fui-avatar-status-border"; Description="Status dot border colour (match page background)" }
+            { Name="--fui-avatar-font";          Description="Font family" }
+        ]
+        Events   = []
+        HtmlUsage = """<!-- Initials fallback -->
+<fui-avatar initials="JD"></fui-avatar>
+<fui-avatar initials="AB" size="lg" status="online"></fui-avatar>
+
+<!-- All status indicators -->
+<fui-avatar initials="ON" status="online"></fui-avatar>
+<fui-avatar initials="OF" status="offline"></fui-avatar>
+<fui-avatar initials="AW" status="away"></fui-avatar>
+<fui-avatar initials="BZ" status="busy"></fui-avatar>"""
+    }
+    {
+        Tag         = "fui-avatar-group"
+        Name        = "AvatarGroup"
+        Slug        = "avatar-group"
+        Category    = "Data Display"
+        Description = "Stacked row of overlapping avatar circles from a JSON array. Clips the list at max and shows a +N overflow bubble for additional members. Three sizes (sm, md, lg)."
+        Attributes  = [
+            { Name="avatars"; Type="string"; Default="[]"; Description="JSON array of {src, initials} objects" }
+            { Name="max";     Type="number"; Default="4";  Description="Maximum avatars shown before the +N overflow bubble" }
+            { Name="size";    Type="string"; Default="md"; Description="sm | md | lg" }
+        ]
+        CssProps = [
+            { Name="--fui-ag-bg";             Description="Avatar circle background (initials)" }
+            { Name="--fui-ag-color";          Description="Initials text colour" }
+            { Name="--fui-ag-ring";           Description="Gap border between stacked circles" }
+            { Name="--fui-ag-overflow-bg";    Description="Overflow bubble background" }
+            { Name="--fui-ag-overflow-color"; Description="Overflow bubble text colour" }
+            { Name="--fui-ag-font";           Description="Font family" }
+        ]
+        Events   = []
+        HtmlUsage = """<fui-avatar-group
+  avatars='[{"src":"","initials":"JD"},{"src":"","initials":"AB"},{"src":"","initials":"MK"},{"src":"","initials":"RQ"},{"src":"","initials":"TW"}]'>
+</fui-avatar-group>
+
+<!-- Large, max 3 -->
+<fui-avatar-group size="lg" max="3"
+  avatars='[{"src":"","initials":"AA"},{"src":"","initials":"BB"},{"src":"","initials":"CC"},{"src":"","initials":"DD"}]'>
+</fui-avatar-group>"""
+    }
+    {
+        Tag         = "fui-tag"
+        Name        = "Tag"
+        Slug        = "tag"
+        Category    = "Data Display"
+        Description = "Compact inline label for categories, statuses, and facets. Six colour variants, three sizes, and an optional removable × button that fires fui-remove."
+        Attributes  = [
+            { Name="variant";   Type="string";  Default="neutral"; Description="neutral | success | warning | danger | info | accent" }
+            { Name="size";      Type="string";  Default="md";      Description="sm | md | lg" }
+            { Name="removable"; Type="boolean"; Default="false";   Description="Shows a × button; fires fui-remove when clicked" }
+        ]
+        CssProps = [
+            { Name="--fui-tag-bg";     Description="Neutral background colour" }
+            { Name="--fui-tag-border"; Description="Neutral border colour" }
+            { Name="--fui-tag-color";  Description="Neutral text colour" }
+            { Name="--fui-tag-radius"; Description="Border radius" }
+            { Name="--fui-tag-font";   Description="Font family" }
+        ]
+        Events = [
+            { Name="fui-remove"; Description="Fired when the × button is clicked — no detail payload" }
+        ]
+        HtmlUsage = """<fui-tag>Default</fui-tag>
+<fui-tag variant="success">Active</fui-tag>
+<fui-tag variant="warning">Pending</fui-tag>
+<fui-tag variant="danger">Error</fui-tag>
+<fui-tag variant="info">Beta</fui-tag>
+<fui-tag variant="accent">New</fui-tag>
+
+<!-- Removable -->
+<fui-tag variant="accent" removable>F#</fui-tag>
+
+<!-- Sizes -->
+<fui-tag size="sm">Small</fui-tag>
+<fui-tag size="lg">Large</fui-tag>"""
+    }
+    {
+        Tag         = "fui-code-block"
+        Name        = "CodeBlock"
+        Slug        = "code-block"
+        Category    = "Data Display"
+        Description = "Syntax-styled code display block with a language label in the toolbar and a copy-to-clipboard button. Lit auto-escapes angle brackets so HTML-heavy snippets render safely."
+        Attributes  = [
+            { Name="language"; Type="string"; Default=""; Description="Language label shown in the toolbar (e.g. fsharp, css, bash). Omit to hide." }
+            { Name="code";     Type="string"; Default=""; Description="Source code to display — HTML special characters are automatically escaped." }
+        ]
+        CssProps = [
+            { Name="--fui-code-bg";         Description="Code block background colour" }
+            { Name="--fui-code-border";     Description="Border colour" }
+            { Name="--fui-code-radius";     Description="Border radius" }
+            { Name="--fui-code-color";      Description="Code text colour" }
+            { Name="--fui-code-lang-color"; Description="Language label colour" }
+            { Name="--fui-code-copy-color"; Description="Copy button colour (idle)" }
+            { Name="--fui-code-font-size";  Description="Code font size (default 0.8125rem)" }
+        ]
+        Events   = []
+        HtmlUsage = """<fui-code-block language="fsharp" code="let greet name =
+    printfn &quot;Hello, %s!&quot; name"></fui-code-block>
+
+<fui-code-block language="bash" code="npm install && npm run start"></fui-code-block>
+
+<fui-code-block code="SELECT * FROM users WHERE active = true;"></fui-code-block>"""
+    }
+    {
+        Tag         = "fui-callout"
+        Name        = "Callout"
+        Slug        = "callout"
+        Category    = "Data Display"
+        Description = "Editorial callout box with a left accent stripe and optional icon-prefixed title. Five variants: info, success, warning, danger, and note (accent purple). Body content is slotted."
+        Attributes  = [
+            { Name="variant"; Type="string"; Default="info"; Description="info | success | warning | danger | note" }
+            { Name="title";   Type="string"; Default="";    Description="Bold heading line with an auto-selected icon prefix" }
+        ]
+        CssProps = [
+            { Name="--fui-callout-radius";      Description="Border radius" }
+            { Name="--fui-callout-title-color"; Description="Title text colour" }
+            { Name="--fui-callout-color";       Description="Body text colour" }
+            { Name="--fui-callout-font";        Description="Font family" }
+        ]
+        Events   = []
+        HtmlUsage = """<fui-callout variant="info"    title="Tip">Use CSS custom properties to theme any component.</fui-callout>
+<fui-callout variant="success" title="Done">All checks passed.</fui-callout>
+<fui-callout variant="warning" title="Heads up">This API will be deprecated in v2.</fui-callout>
+<fui-callout variant="danger"  title="Error">Failed to connect to the server.</fui-callout>
+<fui-callout variant="note"    title="Note">Behaviour changed in v1.4.</fui-callout>"""
+    }
+    {
+        Tag         = "fui-list"
+        Name        = "List"
+        Slug        = "list"
+        Category    = "Data Display"
+        Description = "Styled unordered or ordered list rendered from a JSON string array. Four visual variants: default, bordered (divider lines), striped (alternating rows), and bullet (accent ▸ prefix)."
+        Attributes  = [
+            { Name="items";   Type="string";  Default="[]";      Description="JSON array of string items" }
+            { Name="ordered"; Type="boolean"; Default="false";   Description="Renders as an <ol> with CSS counter prefix" }
+            { Name="variant"; Type="string";  Default="default"; Description="default | bordered | striped | bullet" }
+        ]
+        CssProps = [
+            { Name="--fui-list-color";         Description="List item text colour" }
+            { Name="--fui-list-divider";       Description="Divider line colour (bordered variant)" }
+            { Name="--fui-list-counter-color"; Description="Counter number colour (ordered)" }
+            { Name="--fui-list-font";          Description="Font family" }
+        ]
+        Events   = []
+        HtmlUsage = """<fui-list items='["Alpha","Beta","Gamma","Delta"]'></fui-list>
+
+<fui-list ordered items='["Install dependencies","Configure","Run the server"]'></fui-list>
+
+<fui-list variant="bordered" items='["Item 1","Item 2","Item 3"]'></fui-list>
+
+<fui-list variant="bullet" items='["Build UI","Add API","Write tests"]'></fui-list>"""
+    }
+    {
+        Tag         = "fui-timeline"
+        Name        = "Timeline"
+        Slug        = "timeline"
+        Category    = "Data Display"
+        Description = "Vertical event sequence. Each item has a label, optional date, description, and icon dot. A connector line links consecutive dots."
+        Attributes  = [
+            { Name="items"; Type="string"; Default="[]"; Description="JSON array of {label, description, date, icon} objects — description, date, and icon are optional (set to \"\" to hide)" }
+        ]
+        CssProps = [
+            { Name="--fui-tl-line";        Description="Connector line colour" }
+            { Name="--fui-tl-dot-bg";      Description="Dot background colour" }
+            { Name="--fui-tl-dot-border";  Description="Dot border / accent colour" }
+            { Name="--fui-tl-dot-color";   Description="Icon colour inside the dot" }
+            { Name="--fui-tl-label-color"; Description="Event label text colour" }
+            { Name="--fui-tl-date-color";  Description="Date text colour" }
+            { Name="--fui-tl-desc-color";  Description="Description text colour" }
+            { Name="--fui-tl-font";        Description="Font family" }
+        ]
+        Events   = []
+        HtmlUsage = """<fui-timeline items='[
+  {"label":"Project started","description":"Initial planning completed.","date":"Jan 2025","icon":""},
+  {"label":"Beta release","description":"First public beta shipped.","date":"Jun 2025","icon":""},
+  {"label":"v1.0","description":"General availability.","date":"Sep 2025","icon":""}
+]'></fui-timeline>"""
+    }
+    {
+        Tag         = "fui-accordion"
+        Name        = "Accordion"
+        Slug        = "accordion"
+        Category    = "Data Display"
+        Description = "Collapsible panel list. In single mode (default) opening one panel closes any other. In multiple mode any number of panels can be open simultaneously."
+        Attributes  = [
+            { Name="items";    Type="string";  Default="[]";    Description="JSON array of {label, content} objects" }
+            { Name="multiple"; Type="boolean"; Default="false"; Description="Allow multiple panels open at once" }
+        ]
+        CssProps = [
+            { Name="--fui-accordion-border";        Description="Container and item border colour" }
+            { Name="--fui-accordion-radius";        Description="Container border radius" }
+            { Name="--fui-accordion-trigger-color"; Description="Trigger button text colour" }
+            { Name="--fui-accordion-icon-color";    Description="Chevron icon colour (closed)" }
+            { Name="--fui-accordion-color";         Description="Panel body text colour" }
+            { Name="--fui-accordion-font";          Description="Font family" }
+        ]
+        Events   = []
+        HtmlUsage = """<fui-accordion items='[
+  {"label":"What is FableUI?","content":"A library of standalone Web Components built with Fable and Lit."},
+  {"label":"Do I need a framework?","content":"No — any fui-* tag works in plain HTML."},
+  {"label":"Can I theme the components?","content":"Yes — all components expose CSS custom properties."}
+]'></fui-accordion>
+
+<!-- Multiple panels open at once -->
+<fui-accordion multiple items='[{"label":"Panel A","content":"Content A"},{"label":"Panel B","content":"Content B"}]'></fui-accordion>"""
+    }
+    {
+        Tag         = "fui-carousel"
+        Name        = "Carousel"
+        Slug        = "carousel"
+        Category    = "Data Display"
+        Description = "Slide-by-slide content switcher with Prev/Next buttons and dot navigation. Optional loop mode wraps the last slide back to the first."
+        Attributes  = [
+            { Name="items";     Type="string";  Default="[]";   Description="JSON array of {title, description} objects" }
+            { Name="show-dots"; Type="boolean"; Default="true"; Description="Show clickable dot indicators (default true)" }
+            { Name="loop";      Type="boolean"; Default="false"; Description="Wrap from last slide to first when navigating" }
+        ]
+        CssProps = [
+            { Name="--fui-carousel-bg";            Description="Slide area background colour" }
+            { Name="--fui-carousel-border";        Description="Container and control border colour" }
+            { Name="--fui-carousel-radius";        Description="Container border radius" }
+            { Name="--fui-carousel-title-color";   Description="Slide title colour" }
+            { Name="--fui-carousel-desc-color";    Description="Slide description colour" }
+            { Name="--fui-carousel-btn-border";    Description="Nav button border colour" }
+            { Name="--fui-carousel-btn-color";     Description="Nav button text colour" }
+            { Name="--fui-carousel-dot";           Description="Inactive dot colour" }
+            { Name="--fui-carousel-counter-color"; Description="Counter text colour" }
+            { Name="--fui-carousel-font";          Description="Font family" }
+        ]
+        Events = [
+            { Name="fui-change"; Description="Fired on slide change — detail: { index: number }" }
+        ]
+        HtmlUsage = """<fui-carousel items='[
+  {"title":"Components","description":"Drop any fui-* tag into HTML and it works immediately."},
+  {"title":"Theming","description":"Use CSS custom properties to control every visual detail."},
+  {"title":"Accessibility","description":"WCAG 2.1 AA keyboard and ARIA support throughout."}
+]'></fui-carousel>
+
+<!-- Loop enabled -->
+<fui-carousel loop items='[{"title":"Slide 1","description":"Content 1"},{"title":"Slide 2","description":"Content 2"}]'></fui-carousel>"""
+    }
+    {
+        Tag         = "fui-table"
+        Name        = "Table"
+        Slug        = "table"
+        Category    = "Data Display"
+        Description = "Data table with optional client-side column sorting and striped rows. Columns are JSON descriptors; rows are JSON arrays of string arrays (one inner array per row)."
+        Attributes  = [
+            { Name="columns";  Type="string";  Default="[]";   Description="JSON array of {key, label, sortable} column descriptors" }
+            { Name="rows";     Type="string";  Default="[]";   Description="JSON array of string arrays — each inner array is one row" }
+            { Name="sortable"; Type="boolean"; Default="false"; Description="Enable client-side sorting for columns where sortable: true" }
+            { Name="striped";  Type="boolean"; Default="false"; Description="Alternate odd/even row background colours" }
+        ]
+        CssProps = [
+            { Name="--fui-table-border";     Description="Table and cell border colour" }
+            { Name="--fui-table-radius";     Description="Container border radius" }
+            { Name="--fui-table-head-bg";    Description="Header row background" }
+            { Name="--fui-table-head-color"; Description="Header cell text colour" }
+            { Name="--fui-table-color";      Description="Body cell text colour" }
+            { Name="--fui-table-font";       Description="Font family" }
+        ]
+        Events   = []
+        HtmlUsage = """<fui-table
+  sortable
+  columns='[{"key":"name","label":"Name","sortable":true},{"key":"email","label":"Email","sortable":true},{"key":"role","label":"Role","sortable":false}]'
+  rows='[["Alice Chen","alice@example.com","Admin"],["Bob Smith","bob@example.com","Developer"],["Carol Davis","carol@example.com","Designer"]]'>
+</fui-table>
+
+<!-- Striped, no sorting -->
+<fui-table striped columns='[{"key":"n","label":"Name","sortable":false}]' rows='[["Alice"],["Bob"],["Carol"]]'></fui-table>"""
+    }
     // ── Navigation ────────────────────────────────────────────────────────────
     {
         Tag         = "fui-tabs"
@@ -1073,6 +1620,23 @@ let registerAll () =
     WebComponents.FuiSkeleton.register ()
     WebComponents.FuiToast.register ()
     WebComponents.FuiEmptyState.register ()
+    WebComponents.FuiModal.register ()
+    WebComponents.FuiDrawer.register ()
+    WebComponents.FuiTooltip.register ()
+    WebComponents.FuiPopover.register ()
+    WebComponents.FuiConfirmDialog.register ()
+    WebComponents.FuiCard.register ()
+    WebComponents.FuiStat.register ()
+    WebComponents.FuiAvatar.register ()
+    WebComponents.FuiAvatarGroup.register ()
+    WebComponents.FuiTag.register ()
+    WebComponents.FuiCodeBlock.register ()
+    WebComponents.FuiCallout.register ()
+    WebComponents.FuiList.register ()
+    WebComponents.FuiTimeline.register ()
+    WebComponents.FuiAccordion.register ()
+    WebComponents.FuiCarousel.register ()
+    WebComponents.FuiTable.register ()
     WebComponents.FuiDivider.register ()
     WebComponents.FuiStack.register ()
     WebComponents.FuiScrollArea.register ()
