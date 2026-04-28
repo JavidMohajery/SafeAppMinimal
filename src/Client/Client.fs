@@ -9,7 +9,7 @@ open Fable.React.Props
 // Register all Web Components with the browser before React starts rendering.
 do ComponentRegistry.registerAll()
 
-type Page = Home | CounterElmish | CounterDom | Component of string * string
+type Page = Home | GettingStarted | CategoryIndex of string | CounterElmish | CounterDom | Component of string * string
 
 type Model = {
     Page          : Page
@@ -21,10 +21,30 @@ type Msg =
     | UrlChanged of string
     | ElmishCounterMsg of Pages.CounterElmish.Msg
 
+let urlCatLabel (slug: string) =
+    match slug with
+    | "inputs"       -> "Inputs & Forms"
+    | "layout"       -> "Layout"
+    | "navigation"   -> "Navigation"
+    | "feedback"     -> "Feedback"
+    | "overlay"      -> "Overlay"
+    | "data-display" -> "Data Display"
+    | "typography"   -> "Typography"
+    | "charts"       -> "Charts"
+    | other          -> other
+
+let urlCatToRegistry (slug: string) =
+    match slug with
+    | "inputs"       -> "Inputs & Forms"
+    | "data-display" -> "Data Display"
+    | other          -> System.Char.ToUpper(other.[0]).ToString() + other.[1..]
+
 let parsePage (hash: string) =
     match hash.TrimStart('#').TrimStart('/').Split('/') |> Array.toList with
-    | "counter-elmish" :: _ -> CounterElmish
-    | "counter-dom"    :: _ -> CounterDom
+    | "counter-elmish"  :: _ -> CounterElmish
+    | "counter-dom"     :: _ -> CounterDom
+    | "getting-started" :: _ -> GettingStarted
+    | "category" :: cat :: _ -> CategoryIndex cat
     | "component" :: cat :: slug :: _ -> Component(cat, slug)
     | _ -> Home
 
@@ -78,9 +98,10 @@ let sidebar (model: Model) =
         nav [ ClassName "sidebar-nav" ] [
             div [ ClassName "sidebar-group" ] [
                 sidebarLink "Home" "#/" model.Hash
+                sidebarLink "Getting Started" "#/getting-started" model.Hash
             ]
             div [ ClassName "sidebar-group" ] [
-                div [ ClassName "sidebar-group-label" ] [ str "Inputs & Forms" ]
+                a [ ClassName "sidebar-group-label"; Href "#/category/inputs" ] [ str "Inputs & Forms" ]
                 sidebarLink "Button"   "#/component/inputs/button"   model.Hash
                 sidebarLink "Input"   "#/component/inputs/input"    model.Hash
                 sidebarLink "Textarea" "#/component/inputs/textarea" model.Hash
@@ -99,7 +120,7 @@ let sidebar (model: Model) =
                 sidebarLink "Form"       "#/component/inputs/form"        model.Hash
             ]
             div [ ClassName "sidebar-group" ] [
-                div [ ClassName "sidebar-group-label" ] [ str "Layout" ]
+                a [ ClassName "sidebar-group-label"; Href "#/category/layout" ] [ str "Layout" ]
                 sidebarLink "Divider"      "#/component/layout/divider"      model.Hash
                 sidebarLink "Stack"        "#/component/layout/stack"        model.Hash
                 sidebarLink "ScrollArea"   "#/component/layout/scroll-area"  model.Hash
@@ -110,7 +131,7 @@ let sidebar (model: Model) =
                 sidebarLink "ResizablePanel" "#/component/layout/resizable-panel" model.Hash
             ]
             div [ ClassName "sidebar-group" ] [
-                div [ ClassName "sidebar-group-label" ] [ str "Overlay" ]
+                a [ ClassName "sidebar-group-label"; Href "#/category/overlay" ] [ str "Overlay" ]
                 sidebarLink "Modal"         "#/component/overlay/modal"          model.Hash
                 sidebarLink "Drawer"        "#/component/overlay/drawer"         model.Hash
                 sidebarLink "Tooltip"       "#/component/overlay/tooltip"        model.Hash
@@ -118,7 +139,7 @@ let sidebar (model: Model) =
                 sidebarLink "ConfirmDialog" "#/component/overlay/confirm-dialog" model.Hash
             ]
             div [ ClassName "sidebar-group" ] [
-                div [ ClassName "sidebar-group-label" ] [ str "Feedback" ]
+                a [ ClassName "sidebar-group-label"; Href "#/category/feedback" ] [ str "Feedback" ]
                 sidebarLink "Badge"      "#/component/feedback/badge"       model.Hash
                 sidebarLink "Spinner"    "#/component/feedback/spinner"     model.Hash
                 sidebarLink "Progress"   "#/component/feedback/progress"    model.Hash
@@ -129,7 +150,7 @@ let sidebar (model: Model) =
                 sidebarLink "ErrorBoundary" "#/component/feedback/error-boundary" model.Hash
             ]
             div [ ClassName "sidebar-group" ] [
-                div [ ClassName "sidebar-group-label" ] [ str "Data Display" ]
+                a [ ClassName "sidebar-group-label"; Href "#/category/data-display" ] [ str "Data Display" ]
                 sidebarLink "Card"        "#/component/data-display/card"         model.Hash
                 sidebarLink "Stat"        "#/component/data-display/stat"         model.Hash
                 sidebarLink "Avatar"      "#/component/data-display/avatar"       model.Hash
@@ -144,7 +165,7 @@ let sidebar (model: Model) =
                 sidebarLink "Table"       "#/component/data-display/table"        model.Hash
             ]
             div [ ClassName "sidebar-group" ] [
-                div [ ClassName "sidebar-group-label" ] [ str "Navigation" ]
+                a [ ClassName "sidebar-group-label"; Href "#/category/navigation" ] [ str "Navigation" ]
                 sidebarLink "Tabs"        "#/component/navigation/tabs"        model.Hash
                 sidebarLink "Breadcrumb"  "#/component/navigation/breadcrumb"  model.Hash
                 sidebarLink "Pagination"  "#/component/navigation/pagination"  model.Hash
@@ -157,7 +178,7 @@ let sidebar (model: Model) =
                 sidebarLink "TopNav"         "#/component/navigation/topnav"         model.Hash
             ]
             div [ ClassName "sidebar-group" ] [
-                div [ ClassName "sidebar-group-label" ] [ str "Typography" ]
+                a [ ClassName "sidebar-group-label"; Href "#/category/typography" ] [ str "Typography" ]
                 sidebarLink "Heading"    "#/component/typography/heading"    model.Hash
                 sidebarLink "Text"       "#/component/typography/text"       model.Hash
                 sidebarLink "Label"      "#/component/typography/label"      model.Hash
@@ -167,7 +188,7 @@ let sidebar (model: Model) =
                 sidebarLink "Prose"      "#/component/typography/prose"      model.Hash
             ]
             div [ ClassName "sidebar-group" ] [
-                div [ ClassName "sidebar-group-label" ] [ str "Charts" ]
+                a [ ClassName "sidebar-group-label"; Href "#/category/charts" ] [ str "Charts" ]
                 sidebarLink "BarChart"   "#/component/charts/bar-chart"   model.Hash
                 sidebarLink "LineChart"  "#/component/charts/line-chart"  model.Hash
                 sidebarLink "PieChart"   "#/component/charts/pie-chart"   model.Hash
@@ -185,9 +206,11 @@ let sidebar (model: Model) =
 
 let breadcrumbItems (page: Page) : (string * bool) list =
     match page with
-    | Home          -> [ "Home", true ]
-    | CounterElmish -> [ "Home", false; "Examples", false; "Counter — Elmish", true ]
-    | CounterDom    -> [ "Home", false; "Examples", false; "Counter — DOM", true ]
+    | Home             -> [ "Home", true ]
+    | GettingStarted   -> [ "Home", false; "Getting Started", true ]
+    | CategoryIndex cat -> [ "Home", false; "Components", false; urlCatLabel cat, true ]
+    | CounterElmish    -> [ "Home", false; "Examples", false; "Counter — Elmish", true ]
+    | CounterDom       -> [ "Home", false; "Examples", false; "Counter — DOM", true ]
     | Component(_, slug) ->
         let name = ComponentRegistry.bySlug slug |> Option.map (fun m -> m.Name) |> Option.defaultValue slug
         [ "Home", false; "Components", false; name, true ]
@@ -1921,6 +1944,121 @@ let componentPage (cat: string) (slug: string) =
             ]
         ]
 
+// ── Getting Started page ──────────────────────────────────────────────────────
+
+let gettingStartedPage =
+    let h2Style  = Style [ FontFamily "'JetBrains Mono',monospace"; FontSize "1.05rem"; FontWeight "600"; Color "#E8E8ED"; Margin "0 0 0.625rem"; PaddingBottom "0.625rem"; CSSProp.Custom("border-bottom", "1px solid #2A2A2E") ]
+    let pStyle   = Style [ FontFamily "'Sora',sans-serif"; FontSize "0.9375rem"; Color "#6E6E76"; LineHeight "1.7"; Margin "0 0 1rem" ]
+    let preStyle = Style [ Background "#0D0D0F"; Border "1px solid #2A2A2E"; BorderRadius "8px"; Padding "1.125rem 1.375rem"; CSSProp.Custom("overflow", "auto"); Margin "0.625rem 0 1.75rem"; FontFamily "'JetBrains Mono',monospace"; FontSize "0.8125rem"; Color "#E8E8ED"; LineHeight "1.7" ]
+    let section title children =
+        div [ Style [ MarginBottom "2.5rem" ] ] (
+            h2 [ h2Style ] [ str title ] :: children
+        )
+    let kw s  = span [ Style [ Color "#9B59F5" ] ] [ str s ]
+    let cm s  = span [ Style [ Color "#4E5A65" ] ] [ str s ]
+    let st s  = span [ Style [ Color "#22C55E" ] ] [ str s ]
+    let at s  = span [ Style [ Color "#F59E0B" ] ] [ str s ]
+    div [ ClassName "comp-page" ] [
+        div [ ClassName "comp-header" ] [
+            div [ ClassName "comp-header-row" ] [
+                h1 [ ClassName "comp-name" ] [ str "Getting Started" ]
+            ]
+            p [ Style [ FontFamily "'Sora',sans-serif"; Color "#6E6E76"; Margin "0" ] ] [
+                str "How to build, embed, and theme FableUI components in any web project."
+            ]
+        ]
+        section "1 — Build the bundle" [
+            p [ pStyle ] [ str "Run the production build from the repository root. Fable compiles F# to JavaScript; Vite bundles everything into a single ES module." ]
+            pre [ preStyle ] [ code [] [
+                cm "# compile + bundle\n"
+                str "dotnet fable src/Client --run npm run build\n\n"
+                cm "# output lands in deploy/public/assets/\n"
+                str "ls deploy/public/assets/\n"
+                cm "# → Client-[hash].js   ← the file you distribute"
+            ] ]
+        ]
+        section "2 — Embed in any HTML page" [
+            p [ pStyle ] [ str "Copy the built JS file to your project's static assets folder and add one script tag. The tag registers all custom elements with the browser." ]
+            pre [ preStyle ] [ code [] [
+                str "<"; kw "script"; at " type"; str "="; st "\"module\""; at " src"; str "="; st "\"/assets/Client.js\""; str "></"; kw "script"; str ">"
+            ] ]
+        ]
+        section "3 — Use the elements" [
+            p [ pStyle ] [ str "Custom elements behave like standard HTML elements — set attributes for static values, listen for custom events the same way you listen to clicks." ]
+            pre [ preStyle ] [ code [] [
+                cm "<!-- button with variant -->\n"
+                str "<"; kw "fui-button"; at " variant"; str "="; st "\"primary\""; str ">Save changes</"; kw "fui-button"; str ">\n\n"
+                cm "<!-- chart from a data attribute -->\n"
+                str "<"; kw "fui-bar-chart\n"
+                str "  "; at "data"; str "="; st "'[{\"label\":\"Mon\",\"value\":42},{\"label\":\"Tue\",\"value\":67}]'\n"
+                str "  "; at "height"; str "="; st "\"200\""; str ">\n"
+                str "</"; kw "fui-bar-chart"; str ">\n\n"
+                cm "<!-- listen for custom events -->\n"
+                str "<"; kw "script"; str ">\n"
+                str "  document.querySelector("; st "'fui-button'"; str ")\n"
+                str "    .addEventListener("; st "'fui-click'"; str ", e => console.log("; st "'clicked'"; str "));\n"
+                str "</"; kw "script"; str ">"
+            ] ]
+        ]
+        section "4 — Theme with CSS custom properties" [
+            p [ pStyle ] [ str "Every component exposes design tokens via CSS custom properties. Override them at :root for global changes, or on a selector for local ones." ]
+            pre [ preStyle ] [ code [] [
+                cm "/* global accent colour override */\n"
+                str ":root {\n"
+                str "  "; at "--fui-btn-bg"; str ": "; st "#0EA5E9"; str ";\n"
+                str "  "; at "--fui-btn-bg-hover"; str ": "; st "#38BDF8"; str ";\n"
+                str "}\n\n"
+                cm "/* scoped — only inside .dark-panel */\n"
+                str ".dark-panel "; kw "fui-input"; str " {\n"
+                str "  "; at "--fui-input-bg"; str ": "; st "#0A0A0C"; str ";\n"
+                str "  "; at "--fui-input-border"; str ": "; st "#3A3A3E"; str ";\n"
+                str "}"
+            ] ]
+        ]
+        section "5 — Browser support" [
+            p [ pStyle ] [
+                str "Custom Elements v1 is supported in all modern browsers (Chrome 67+, Firefox 63+, Safari 10.3+, Edge 79+). "
+                str "No polyfills are needed for any evergreen browser."
+            ]
+            div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("gap", "0.75rem"); CSSProp.Custom("flex-wrap", "wrap") ] ] [
+                for (browser, since) in [ "Chrome", "67+"; "Firefox", "63+"; "Safari", "10.3+"; "Edge", "79+" ] do
+                    div [ Style [ Background "#161618"; Border "1px solid #2A2A2E"; BorderRadius "8px"; Padding "0.625rem 1rem"; FontFamily "'JetBrains Mono',monospace"; FontSize "0.8125rem" ] ] [
+                        span [ Style [ Color "#E8E8ED"; FontWeight "600" ] ] [ str browser ]
+                        span [ Style [ Color "#22C55E"; MarginLeft "0.5rem" ] ] [ str since ]
+                    ]
+            ]
+        ]
+    ]
+
+// ── Category index page ───────────────────────────────────────────────────────
+
+let categoryIndexPage (catSlug: string) =
+    let regCat     = urlCatToRegistry catSlug
+    let components = ComponentRegistry.byCategory regCat
+    let label      = urlCatLabel catSlug
+    div [ ClassName "comp-page" ] [
+        div [ ClassName "comp-header" ] [
+            div [ ClassName "comp-header-row" ] [
+                h1 [ ClassName "comp-name" ] [ str label ]
+                span [ ClassName "comp-badge" ] [ str $"{components.Length} components" ]
+            ]
+            p [ Style [ FontFamily "'Sora',sans-serif"; Color "#6E6E76"; Margin "0" ] ] [
+                str $"All {label} components — click any card to open the full demo and API reference."
+            ]
+        ]
+        div [ Style [ Display DisplayOptions.Grid; CSSProp.Custom("grid-template-columns", "repeat(auto-fill,minmax(260px,1fr))"); CSSProp.Custom("gap", "1rem"); MarginTop "2rem" ] ] [
+            for comp in components do
+                a [
+                    Href $"#/component/{catSlug}/{comp.Slug}"
+                    Style [ Display DisplayOptions.Block; Background "#161618"; Border "1px solid #2A2A2E"; BorderRadius "10px"; Padding "1.25rem 1.375rem"; CSSProp.Custom("text-decoration", "none"); CSSProp.Custom("transition", "border-color 0.15s,background 0.15s") ]
+                ] [
+                    span [ Style [ FontFamily "'JetBrains Mono',monospace"; FontSize "0.75rem"; Color "#7C3AED"; FontWeight "600"; CSSProp.Custom("letter-spacing", "0.03em") ] ] [ str comp.Tag ]
+                    h3  [ Style [ FontFamily "'JetBrains Mono',monospace"; FontSize "0.9375rem"; FontWeight "700"; Color "#E8E8ED"; Margin "0.375rem 0 0.5rem" ] ] [ str comp.Name ]
+                    p   [ Style [ FontFamily "'Sora',sans-serif"; FontSize "0.8rem"; Color "#6E6E76"; Margin "0"; LineHeight "1.6"; CSSProp.Custom("display", "-webkit-box"); CSSProp.Custom("-webkit-line-clamp", "2"); CSSProp.Custom("-webkit-box-orient", "vertical"); CSSProp.Custom("overflow", "hidden") ] ] [ str comp.Description ]
+                ]
+        ]
+    ]
+
 // ── Root view ─────────────────────────────────────────────────────────────────
 
 let view (model: Model) (dispatch: Msg -> unit) =
@@ -1931,9 +2069,11 @@ let view (model: Model) (dispatch: Msg -> unit) =
             main [ ClassName "page-content" ] [
                 div [ Key (string model.Page) ] (
                     match model.Page with
-                    | Home          -> [ homePage ]
-                    | CounterElmish -> [ Pages.CounterElmish.view model.ElmishCounter (ElmishCounterMsg >> dispatch) ]
-                    | CounterDom    -> [ Pages.CounterDom.view () ]
+                    | Home             -> [ homePage ]
+                    | GettingStarted   -> [ gettingStartedPage ]
+                    | CategoryIndex cat -> [ categoryIndexPage cat ]
+                    | CounterElmish    -> [ Pages.CounterElmish.view model.ElmishCounter (ElmishCounterMsg >> dispatch) ]
+                    | CounterDom       -> [ Pages.CounterDom.view () ]
                     | Component(cat, slug) -> [ componentPage cat slug ]
                 )
             ]

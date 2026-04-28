@@ -83,6 +83,7 @@ a:hover { color: var(--accent-hi); }
 .sidebar-group:first-child { margin-top: 0; }
 
 .sidebar-group-label {
+  display: block;
   font-family: var(--font-mono);
   font-size: 0.65rem;
   font-weight: 700;
@@ -90,7 +91,9 @@ a:hover { color: var(--accent-hi); }
   letter-spacing: 0.1em;
   color: var(--text-muted);
   padding: 0 1.25rem 0.35rem;
+  text-decoration: none;
 }
+a.sidebar-group-label:hover { color: var(--text); }
 
 .sidebar-link {
   display: flex;
