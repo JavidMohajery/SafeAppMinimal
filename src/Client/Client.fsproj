@@ -54,6 +54,11 @@
     <Compile Include="WebComponents/Navigation/FuiPagination.fs" />
     <Compile Include="WebComponents/Navigation/FuiStepper.fs" />
     <Compile Include="WebComponents/Navigation/FuiMenu.fs" />
+    <Compile Include="WebComponents/Navigation/FuiLink.fs" />
+    <Compile Include="WebComponents/Navigation/FuiContextMenu.fs" />
+    <Compile Include="WebComponents/Navigation/FuiCommandPalette.fs" />
+    <Compile Include="WebComponents/Navigation/FuiSideNav.fs" />
+    <Compile Include="WebComponents/Navigation/FuiTopNav.fs" />
     <Compile Include="WebComponents/Typography/FuiHeading.fs" />
     <Compile Include="WebComponents/Typography/FuiText.fs" />
     <Compile Include="WebComponents/Typography/FuiLabel.fs" />

@@ -1584,6 +1584,149 @@ let all : ComponentMeta list = [
   </div>
 </fui-aspect-ratio>"""
     }
+    // ── Navigation (additional) ───────────────────────────────────────────────
+    {
+        Tag         = "fui-link"
+        Name        = "Link"
+        Slug        = "link"
+        Category    = "Navigation"
+        Description = "Styled inline anchor element with accent, muted, and subtle colour variants, underline animation on hover, and an optional external-link indicator."
+        Attributes  = [
+            { Name="href";     Type="string";  Default="";      Description="Destination URL" }
+            { Name="target";   Type="string";  Default="";      Description="Browser target (e.g. _blank). Overridden when external is set." }
+            { Name="rel";      Type="string";  Default="";      Description="Link relationship. Defaults to noopener noreferrer when external is set." }
+            { Name="variant";  Type="string";  Default="";      Description="muted | subtle — overrides the default accent colour" }
+            { Name="external"; Type="boolean"; Default="false"; Description="Opens in a new tab and appends a small ↗ indicator" }
+        ]
+        CssProps = [
+            { Name="--fui-link-font";  Description="Font family (inherits host font by default)" }
+            { Name="--fui-link-color"; Description="Link text colour (idle)" }
+            { Name="--fui-link-hover"; Description="Link text colour on hover" }
+        ]
+        Events   = []
+        HtmlUsage = """<p>Read the <fui-link href="/docs">documentation</fui-link> to get started.</p>
+<p>View source on <fui-link href="https://github.com" external>GitHub</fui-link>.</p>
+<p><fui-link href="#" variant="muted">Privacy policy</fui-link></p>
+<p><fui-link href="#" variant="subtle">Terms of service</fui-link></p>"""
+    }
+    {
+        Tag         = "fui-context-menu"
+        Name        = "ContextMenu"
+        Slug        = "context-menu"
+        Category    = "Navigation"
+        Description = "Right-click context menu. Wraps any slotted content and intercepts the browser contextmenu event, showing a positioned dropdown at the cursor. Same item model as fui-menu."
+        Attributes  = [
+            { Name="items"; Type="string"; Default="[]"; Description="JSON array of {value, label, disabled?, separator?} objects" }
+        ]
+        CssProps = [
+            { Name="--fui-ctx-font";       Description="Font family" }
+            { Name="--fui-ctx-bg";         Description="Dropdown background" }
+            { Name="--fui-ctx-border";     Description="Dropdown border colour" }
+            { Name="--fui-ctx-radius";     Description="Dropdown border radius" }
+            { Name="--fui-ctx-item-color"; Description="Item text colour" }
+            { Name="--fui-ctx-item-hover"; Description="Item background on hover" }
+            { Name="--fui-ctx-accent";     Description="Item text colour on hover" }
+            { Name="--fui-ctx-sep";        Description="Separator line colour" }
+        ]
+        Events = [
+            { Name="fui-select"; Description="Fired when an item is clicked — detail: { value: string }" }
+        ]
+        HtmlUsage = """<fui-context-menu items='[
+  {"value":"copy",   "label":"Copy"},
+  {"value":"cut",    "label":"Cut"},
+  {"value":"paste",  "label":"Paste"},
+  {"value":"",       "label":"", "separator":true},
+  {"value":"delete", "label":"Delete"}
+]'>
+  <div style="padding:2rem;border:1px dashed #2A2A2E;border-radius:6px">
+    Right-click anywhere in this area
+  </div>
+</fui-context-menu>"""
+    }
+    {
+        Tag         = "fui-command-palette"
+        Name        = "CommandPalette"
+        Slug        = "command-palette"
+        Category    = "Navigation"
+        Description = "Keyboard-driven command search palette. Opens as a centred overlay with a search input and filtered list. Supports grouped items, descriptions, and full keyboard navigation (↑↓ navigate, ↵ select, Esc close)."
+        Attributes  = [
+            { Name="trigger-label"; Type="string"; Default="Open palette"; Description="Text shown on the trigger button" }
+            { Name="placeholder";   Type="string"; Default="Search...";    Description="Placeholder text inside the search input" }
+            { Name="items";         Type="string"; Default="[]";           Description="JSON array of {id, label, description?, group?} objects" }
+        ]
+        CssProps = [
+            { Name="--fui-cp-font"; Description="Font family for the trigger button and group labels" }
+        ]
+        Events = [
+            { Name="fui-select"; Description="Fired when an item is selected — detail: { id: string, label: string }" }
+        ]
+        HtmlUsage = """<fui-command-palette
+  trigger-label="⌘ K — Search"
+  placeholder="Search components..."
+  items='[
+    {"id":"btn",   "label":"Button",    "description":"Clickable action element",  "group":"Components"},
+    {"id":"input", "label":"Input",     "description":"Single-line text field",    "group":"Components"},
+    {"id":"modal", "label":"Modal",     "description":"Dialog overlay",            "group":"Overlay"},
+    {"id":"theme", "label":"Toggle theme","description":"Switch light / dark mode","group":"Actions"}
+  ]'>
+</fui-command-palette>"""
+    }
+    {
+        Tag         = "fui-sidenav"
+        Name        = "SideNav"
+        Slug        = "sidenav"
+        Category    = "Navigation"
+        Description = "Collapsible grouped side navigation. Groups are independently expandable/collapsible. Active links are highlighted with an accent left border."
+        Attributes  = [
+            { Name="logo";   Type="string"; Default="Navigation"; Description="Logo / app name text shown in the header" }
+            { Name="groups"; Type="string"; Default="[]";         Description="JSON array of {label, links: [{label, href, active?}]} group objects" }
+        ]
+        CssProps = [
+            { Name="--fui-snav-bg";         Description="Sidebar background colour" }
+            { Name="--fui-snav-border";     Description="Right border and divider colour" }
+            { Name="--fui-snav-width";      Description="Sidebar width (default 256px)" }
+            { Name="--fui-snav-logo-color"; Description="Logo text colour" }
+            { Name="--fui-snav-link-color"; Description="Link text colour (idle)" }
+            { Name="--fui-snav-font";       Description="Font family" }
+        ]
+        Events   = []
+        HtmlUsage = """<fui-sidenav logo="MyApp" style="height:320px" groups='[
+  {"label":"Inputs","links":[
+    {"label":"Button","href":"#","active":true},
+    {"label":"Input","href":"#","active":false}
+  ]},
+  {"label":"Layout","links":[
+    {"label":"Grid","href":"#","active":false},
+    {"label":"Stack","href":"#","active":false}
+  ]}
+]'></fui-sidenav>"""
+    }
+    {
+        Tag         = "fui-topnav"
+        Name        = "TopNav"
+        Slug        = "topnav"
+        Category    = "Navigation"
+        Description = "Sticky top navigation bar with a logo, a centred links area (default slot), and a right-side actions area (actions slot). Fully slot-based for maximum composability."
+        Attributes  = [
+            { Name="logo"; Type="string"; Default="App"; Description="Logo / app name text" }
+        ]
+        CssProps = [
+            { Name="--fui-tnav-bg";        Description="Bar background colour" }
+            { Name="--fui-tnav-border";    Description="Bottom border colour" }
+            { Name="--fui-tnav-height";    Description="Bar height (default 52px)" }
+            { Name="--fui-tnav-max-width"; Description="Content max-width (default 1100px)" }
+            { Name="--fui-tnav-logo-color";Description="Logo text colour" }
+            { Name="--fui-tnav-font";      Description="Font family" }
+        ]
+        Events   = []
+        HtmlUsage = """<fui-topnav logo="FableUI">
+  <a href="#" class="active">Components</a>
+  <a href="#">Docs</a>
+  <a href="#">Examples</a>
+  <button slot="actions">⬡ Theme</button>
+  <button slot="actions">GitHub</button>
+</fui-topnav>"""
+    }
     // ── Typography ────────────────────────────────────────────────────────────
     {
         Tag         = "fui-heading"
@@ -1813,6 +1956,11 @@ let registerAll () =
     WebComponents.FuiPagination.register ()
     WebComponents.FuiStepper.register ()
     WebComponents.FuiMenu.register ()
+    WebComponents.FuiLink.register ()
+    WebComponents.FuiContextMenu.register ()
+    WebComponents.FuiCommandPalette.register ()
+    WebComponents.FuiSideNav.register ()
+    WebComponents.FuiTopNav.register ()
     WebComponents.FuiHeading.register ()
     WebComponents.FuiText.register ()
     WebComponents.FuiLabel.register ()

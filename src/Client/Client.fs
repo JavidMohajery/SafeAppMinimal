@@ -143,7 +143,12 @@ let sidebar (model: Model) =
                 sidebarLink "Breadcrumb"  "#/component/navigation/breadcrumb"  model.Hash
                 sidebarLink "Pagination"  "#/component/navigation/pagination"  model.Hash
                 sidebarLink "Stepper"     "#/component/navigation/stepper"     model.Hash
-                sidebarLink "Menu"        "#/component/navigation/menu"        model.Hash
+                sidebarLink "Menu"           "#/component/navigation/menu"           model.Hash
+                sidebarLink "Link"           "#/component/navigation/link"           model.Hash
+                sidebarLink "ContextMenu"    "#/component/navigation/context-menu"   model.Hash
+                sidebarLink "CommandPalette" "#/component/navigation/command-palette" model.Hash
+                sidebarLink "SideNav"        "#/component/navigation/sidenav"        model.Hash
+                sidebarLink "TopNav"         "#/component/navigation/topnav"         model.Hash
             ]
             div [ ClassName "sidebar-group" ] [
                 div [ ClassName "sidebar-group-label" ] [ str "Typography" ]
@@ -1440,6 +1445,65 @@ let componentLivePreview (slug: string) : ReactElement list =
                 sl "Sortable + striped"
                 wc "fui-table" [ "columns", cols; "rows", rows; "sortable", ""; "striped", "" ] []
             ]
+        ] ]
+    | "link" ->
+        let row children = div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("gap", "1.5rem"); CSSProp.Custom("align-items", "center"); CSSProp.Custom("flex-wrap", "wrap") ] ] children
+        let sl txt = p [ Style [ Margin "0 0 0.5rem"; FontSize "0.75rem"; CSSProp.Custom("color", "#6E6E76"); CSSProp.Custom("text-transform", "uppercase"); CSSProp.Custom("letter-spacing", "0.06em") ] ] [ str txt ]
+        [ div [ Style [ Display DisplayOptions.Flex; FlexDirection "column"; CSSProp.Custom("gap", "1.25rem") ] ] [
+            div [] [
+                sl "Variants"
+                row [
+                    wc "fui-link" [ "href", "#" ] [ str "Default (accent)" ]
+                    wc "fui-link" [ "href", "#"; "variant", "muted"  ] [ str "Muted" ]
+                    wc "fui-link" [ "href", "#"; "variant", "subtle" ] [ str "Subtle" ]
+                ]
+            ]
+            div [] [
+                sl "External link"
+                row [
+                    wc "fui-link" [ "href", "https://fable.io"; "external", "" ] [ str "Fable.io" ]
+                    wc "fui-link" [ "href", "https://lit.dev";  "external", "" ] [ str "Lit.dev" ]
+                ]
+            ]
+            div [] [
+                sl "Inline in text"
+                p [ Style [ Margin "0"; CSSProp.Custom("color", "#A0A0A8"); CSSProp.Custom("font-family", "Sora, sans-serif"); CSSProp.Custom("font-size", "0.9375rem"); CSSProp.Custom("line-height", "1.6") ] ] [
+                    str "Read the "
+                    wc "fui-link" [ "href", "#" ] [ str "documentation" ]
+                    str " to get started, then explore "
+                    wc "fui-link" [ "href", "#"; "variant", "muted" ] [ str "examples" ]
+                    str "."
+                ]
+            ]
+        ] ]
+    | "context-menu" ->
+        let items = """[{"value":"copy","label":"Copy","disabled":false,"separator":false},{"value":"cut","label":"Cut","disabled":false,"separator":false},{"value":"paste","label":"Paste","disabled":true,"separator":false},{"value":"","label":"","disabled":false,"separator":true},{"value":"delete","label":"Delete","disabled":false,"separator":false}]"""
+        [ div [ Style [ Display DisplayOptions.Flex; FlexDirection "column"; CSSProp.Custom("gap", "1rem") ] ] [
+            p [ Style [ Margin "0"; FontSize "0.875rem"; CSSProp.Custom("color", "#6E6E76") ] ] [ str "Right-click inside the dashed area to open the context menu." ]
+            wc "fui-context-menu" [ "items", items ] [
+                div [ Style [ Padding "3rem 2rem"; CSSProp.Custom("border", "1px dashed #2A2A2E"); CSSProp.Custom("border-radius", "6px"); CSSProp.Custom("color", "#4A4A52"); CSSProp.Custom("font-family", "Sora, sans-serif"); CSSProp.Custom("text-align", "center"); CSSProp.Custom("font-size", "0.875rem") ] ] [
+                    str "Right-click anywhere here"
+                ]
+            ]
+        ] ]
+    | "command-palette" ->
+        let items = """[{"id":"button","label":"Button","description":"Interactive clickable element","group":"Components"},{"id":"input","label":"Input","description":"Single-line text field","group":"Components"},{"id":"modal","label":"Modal","description":"Dialog overlay component","group":"Overlay"},{"id":"drawer","label":"Drawer","description":"Side-panel overlay","group":"Overlay"},{"id":"theme","label":"Toggle theme","description":"Switch between light and dark mode","group":"Actions"},{"id":"docs","label":"Open docs","description":"View the full documentation","group":"Actions"}]"""
+        [ div [ Style [ Display DisplayOptions.Flex; FlexDirection "column"; CSSProp.Custom("gap", "1rem") ] ] [
+            p [ Style [ Margin "0"; FontSize "0.875rem"; CSSProp.Custom("color", "#6E6E76") ] ] [ str "Click the trigger button to open the palette. Use ↑↓ to navigate, ↵ to select, Esc to close." ]
+            wc "fui-command-palette" [ "trigger-label", "⌘ K — Search commands"; "placeholder", "Search components or actions..."; "items", items ] []
+        ] ]
+    | "sidenav" ->
+        let groups = """[{"label":"Inputs","links":[{"label":"Button","href":"#","active":true},{"label":"Input","href":"#","active":false},{"label":"Select","href":"#","active":false}]},{"label":"Layout","links":[{"label":"Grid","href":"#","active":false},{"label":"Stack","href":"#","active":false},{"label":"Divider","href":"#","active":false}]},{"label":"Feedback","links":[{"label":"Alert","href":"#","active":false},{"label":"Toast","href":"#","active":false}]}]"""
+        [ div [ Style [ Height "360px" ] ] [
+            wc "fui-sidenav" [ "logo", "FableUI"; "groups", groups ] []
+        ] ]
+    | "topnav" ->
+        [ wc "fui-topnav" [ "logo", "FableUI" ] [
+            domEl "a" [ HTMLAttr.Href "#"; HTMLAttr.ClassName "active" ] [ str "Components" ]
+            domEl "a" [ HTMLAttr.Href "#" ] [ str "Docs" ]
+            domEl "a" [ HTMLAttr.Href "#" ] [ str "Examples" ]
+            domEl "button" [ HTMLAttr.Custom("slot", box "actions") ] [ str "⬡ Theme" ]
+            domEl "button" [ HTMLAttr.Custom("slot", box "actions") ] [ str "GitHub" ]
         ] ]
     | "heading" ->
         let sl txt = p [ Style [ Margin "0 0 0.5rem"; FontSize "0.75rem"; CSSProp.Custom("color", "#6E6E76"); CSSProp.Custom("text-transform", "uppercase"); CSSProp.Custom("letter-spacing", "0.06em") ] ] [ str txt ]
