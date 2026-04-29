@@ -15,6 +15,16 @@ type FetchState = Idle | Fetching | Done of int * string | Failed of string
 
 type Theme = Dark | Light
 
+type CrudFormState = {
+    GetId           : string
+    CreateTitle     : string
+    CreateCompleted : bool
+    UpdateId        : string
+    UpdateTitle     : string
+    UpdateCompleted : bool
+    DeleteId        : string
+}
+
 type Model = {
     Page          : Page
     Hash          : string
@@ -22,6 +32,7 @@ type Model = {
     BackendResults: Map<string, FetchState>
     Theme         : Theme
     SidebarOpen   : bool
+    CrudForm      : CrudFormState
 }
 
 type Msg =
@@ -33,6 +44,9 @@ type Msg =
     | ToggleTheme
     | ToggleSidebar
     | CloseSidebar
+    | CrudFormStr  of string * string
+    | CrudFormBool of string * bool
+    | CrudSend     of string * string * string * string
 
 let urlCatLabel (slug: string) =
     match slug with
@@ -65,10 +79,17 @@ let parsePage (hash: string) =
 let init () =
     let counter, _ = Pages.CounterElmish.init ()
     let hash = window.location.hash
-    { Page = parsePage hash; Hash = hash; ElmishCounter = counter; BackendResults = Map.empty; Theme = Dark; SidebarOpen = false }, Cmd.none
+    let defaultCrud = { GetId = "1"; CreateTitle = ""; CreateCompleted = false; UpdateId = "1"; UpdateTitle = ""; UpdateCompleted = false; DeleteId = "1" }
+    { Page = parsePage hash; Hash = hash; ElmishCounter = counter; BackendResults = Map.empty; Theme = Dark; SidebarOpen = false; CrudForm = defaultCrud }, Cmd.none
 
 [<Fable.Core.Emit("fetch($0).then(r=>r.text().then(b=>({status:r.status,body:b})))")>]
 let private fetchGet (url: string) : Fable.Core.JS.Promise<{| status: int; body: string |}> = jsNative
+
+[<Fable.Core.Emit("fetch($0,(b=>Object.assign({method:$1},b?{headers:{'Content-Type':'application/json'},body:b}:{}))($2)).then(r=>r.text().then(b=>({status:r.status,body:b})))")>]
+let private fetchJson (url: string) (method: string) (body: string) : Fable.Core.JS.Promise<{| status: int; body: string |}> = jsNative
+
+[<Fable.Core.Emit("JSON.stringify({title:$0,completed:$1})")>]
+let private itemJson (title: string) (completed: bool) : string = jsNative
 
 let update msg model =
     match msg with
@@ -96,6 +117,33 @@ let update msg model =
         { model with SidebarOpen = not model.SidebarOpen }, Cmd.none
     | CloseSidebar ->
         { model with SidebarOpen = false }, Cmd.none
+    | CrudFormStr(field, value) ->
+        let f = model.CrudForm
+        let form =
+            match field with
+            | "get-id"        -> { f with GetId = value }
+            | "create-title"  -> { f with CreateTitle = value }
+            | "update-id"     -> { f with UpdateId = value }
+            | "update-title"  -> { f with UpdateTitle = value }
+            | "delete-id"     -> { f with DeleteId = value }
+            | _               -> f
+        { model with CrudForm = form }, Cmd.none
+    | CrudFormBool(field, value) ->
+        let f = model.CrudForm
+        let form =
+            match field with
+            | "create-completed" -> { f with CreateCompleted = value }
+            | "update-completed" -> { f with UpdateCompleted = value }
+            | _                  -> f
+        { model with CrudForm = form }, Cmd.none
+    | CrudSend(key, method, url, body) ->
+        let cmd =
+            Cmd.OfPromise.either
+                (fun () -> fetchJson url method body)
+                ()
+                (fun r -> BackendReceive(key, r.status, r.body))
+                (fun ex -> BackendError(key, ex.Message))
+        { model with BackendResults = model.BackendResults |> Map.add key Fetching }, cmd
 
 // Elmish 4 subscription: hashchange listener.
 let hashSub (_model: Model) : Sub<Msg> =
@@ -1995,10 +2043,207 @@ let private backendDemos = [
     //   /api/demo/error/429""" }
 ]
 
+let private crudApiPage (demo: BackendDemoMeta) (model: Model) (dispatch: Msg -> unit) =
+    let f = model.CrudForm
+    let state key = model.BackendResults |> Map.tryFind key |> Option.defaultValue Idle
+    let loading key = state key = Fetching
+    let statusVariant code = if code >= 200 && code < 300 then "success" elif code >= 500 then "danger" elif code >= 400 then "warning" else "info"
+
+    let labelStyle    = Style [ FontFamily "'JetBrains Mono',monospace"; FontSize "0.65rem"; FontWeight "700"; CSSProp.Custom("text-transform","uppercase"); CSSProp.Custom("letter-spacing","0.08em"); Color "#6E6E76"; MarginBottom "0.5rem" ]
+    let codePreStyle  = Style [ Margin "0"; FontFamily "'JetBrains Mono',monospace"; FontSize "0.8rem"; Color "#E8E8ED"; LineHeight "1.7"; CSSProp.Custom("white-space","pre") ]
+    let panelStyle    = Style [ Background "#0D0D0F"; Border "1px solid #2A2A2E"; BorderRadius "8px"; Padding "1.125rem 1.375rem"; CSSProp.Custom("overflow","auto") ]
+    let cardStyle     = Style [ Background "#161618"; Border "1px solid #2A2A2E"; BorderRadius "10px"; Padding "1.25rem 1.5rem"; MarginBottom "1.25rem" ]
+    let inputStyle    = Style [ Background "#0D0D0F"; Border "1px solid #2A2A2E"; BorderRadius "6px"; Color "#E8E8ED"; FontFamily "'JetBrains Mono',monospace"; FontSize "0.875rem"; Padding "0.5rem 0.75rem"; Width "100%"; Outline "none"; CSSProp.Custom("box-sizing","border-box") ]
+    let fieldLbl      = Style [ Display DisplayOptions.Block; FontFamily "'JetBrains Mono',monospace"; FontSize "0.72rem"; Color "#6E6E76"; MarginBottom "0.35rem" ]
+    let checkboxRowSt = Style [ Display DisplayOptions.Flex; CSSProp.Custom("align-items","center"); CSSProp.Custom("gap","0.5rem"); FontFamily "'JetBrains Mono',monospace"; FontSize "0.8rem"; Color "#E8E8ED"; Cursor "pointer" ]
+
+    let responsePanel key =
+        div [ Style [ MarginTop "1rem" ] ] [
+            p [ labelStyle ] [ str "Response" ]
+            match state key with
+            | Idle ->
+                wc "fui-empty-state" [ "title", "No response yet"; "description", "Press Send to call the endpoint." ] []
+            | Fetching ->
+                div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("justify-content","center"); Padding "1.5rem" ] ] [
+                    wc "fui-spinner" [ "label", "Sending…" ] []
+                ]
+            | Done(status, body) ->
+                div [ panelStyle ] [
+                    div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("align-items","center"); CSSProp.Custom("gap","0.75rem"); MarginBottom "0.875rem" ] ] [
+                        wc "fui-badge" [ "variant", statusVariant status ] [ str $"HTTP {status}" ]
+                        if body <> "" then wc "fui-badge" [] [ str "application/json" ]
+                    ]
+                    if body <> "" then pre [ codePreStyle ] [ str body ]
+                ]
+            | Failed err ->
+                wc "fui-alert" [ "variant", "danger"; "title", "Network error" ] [ str err ]
+        ]
+
+    let methodRow (method: string) (url: string) =
+        div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("align-items","center"); CSSProp.Custom("gap","0.5rem"); MarginBottom "0.875rem" ] ] [
+            let v = match method with "GET" -> "success" | "POST" -> "info" | "DELETE" -> "danger" | _ -> "warning"
+            wc "fui-badge" [ "variant", v ] [ str method ]
+            code [ Style [ FontFamily "'JetBrains Mono',monospace"; FontSize "0.85rem"; Color "#E8E8ED" ] ] [ str url ]
+        ]
+
+    div [ ClassName "comp-page" ] [
+        div [ ClassName "comp-header" ] [
+            div [ ClassName "comp-header-row" ] [
+                h1 [ ClassName "comp-name" ] [ str demo.Name ]
+                wc "fui-badge" [ "variant", "accent" ] [ str "Backend" ]
+            ]
+            p [ Style [ FontFamily "'Sora',sans-serif"; Color "#6E6E76"; Margin "0" ] ] [ str demo.Description ]
+        ]
+
+        // ── GET all ───────────────────────────────────────────────────────────
+        div [ cardStyle ] [
+            p [ labelStyle ] [ str "List All Items" ]
+            methodRow "GET" "/api/items"
+            domEl "fui-button" [
+                HTMLAttr.Custom("variant", box "primary")
+                HTMLAttr.Custom("size", box "sm")
+                if loading "crud-get-all" then HTMLAttr.Custom("disabled", box "")
+                OnClick (fun _ -> dispatch (BackendFetch("crud-get-all", "/api/items")))
+            ] [ str (if loading "crud-get-all" then "Sending…" else "Send Request") ]
+            responsePanel "crud-get-all"
+        ]
+
+        // ── GET by ID ─────────────────────────────────────────────────────────
+        div [ cardStyle ] [
+            p [ labelStyle ] [ str "Get Item by ID" ]
+            methodRow "GET" "/api/items/:id"
+            div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("align-items","flex-end"); CSSProp.Custom("gap","0.75rem"); CSSProp.Custom("flex-wrap","wrap") ] ] [
+                div [ Style [ CSSProp.Custom("flex","0 0 110px") ] ] [
+                    label [ fieldLbl ] [ str "ID" ]
+                    domEl "input" [
+                        HTMLAttr.Type "number"; HTMLAttr.Min "1"
+                        HTMLAttr.Value f.GetId
+                        inputStyle
+                        OnChange (fun e -> dispatch (CrudFormStr("get-id", (e.target :?> Browser.Types.HTMLInputElement).value)))
+                    ] []
+                ]
+                domEl "fui-button" [
+                    HTMLAttr.Custom("variant", box "primary")
+                    HTMLAttr.Custom("size", box "sm")
+                    if loading "crud-get-id" then HTMLAttr.Custom("disabled", box "")
+                    OnClick (fun _ -> dispatch (BackendFetch("crud-get-id", $"/api/items/{f.GetId}")))
+                ] [ str (if loading "crud-get-id" then "Sending…" else "Send Request") ]
+            ]
+            responsePanel "crud-get-id"
+        ]
+
+        // ── POST create ───────────────────────────────────────────────────────
+        div [ cardStyle ] [
+            p [ labelStyle ] [ str "Create Item" ]
+            methodRow "POST" "/api/items"
+            div [ Style [ Display DisplayOptions.Flex; FlexDirection "column"; CSSProp.Custom("gap","0.75rem") ] ] [
+                div [] [
+                    label [ fieldLbl ] [ str "Title" ]
+                    domEl "input" [
+                        HTMLAttr.Type "text"; HTMLAttr.Placeholder "e.g. Write unit tests"
+                        HTMLAttr.Value f.CreateTitle
+                        inputStyle
+                        OnChange (fun e -> dispatch (CrudFormStr("create-title", (e.target :?> Browser.Types.HTMLInputElement).value)))
+                    ] []
+                ]
+                label [ checkboxRowSt ] [
+                    domEl "input" [
+                        HTMLAttr.Type "checkbox"
+                        HTMLAttr.Checked f.CreateCompleted
+                        OnChange (fun e -> dispatch (CrudFormBool("create-completed", (e.target :?> Browser.Types.HTMLInputElement).``checked``)))
+                    ] []
+                    str "Completed"
+                ]
+                domEl "fui-button" [
+                    HTMLAttr.Custom("variant", box "primary")
+                    HTMLAttr.Custom("size", box "sm")
+                    if loading "crud-create" || f.CreateTitle.Trim() = "" then HTMLAttr.Custom("disabled", box "")
+                    OnClick (fun _ -> dispatch (CrudSend("crud-create", "POST", "/api/items", itemJson f.CreateTitle f.CreateCompleted)))
+                ] [ str (if loading "crud-create" then "Sending…" else "Create Item") ]
+            ]
+            responsePanel "crud-create"
+        ]
+
+        // ── PUT update ────────────────────────────────────────────────────────
+        div [ cardStyle ] [
+            p [ labelStyle ] [ str "Update Item" ]
+            methodRow "PUT" "/api/items/:id"
+            div [ Style [ Display DisplayOptions.Flex; FlexDirection "column"; CSSProp.Custom("gap","0.75rem") ] ] [
+                div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("gap","0.75rem"); CSSProp.Custom("flex-wrap","wrap") ] ] [
+                    div [ Style [ CSSProp.Custom("flex","0 0 110px") ] ] [
+                        label [ fieldLbl ] [ str "ID" ]
+                        domEl "input" [
+                            HTMLAttr.Type "number"; HTMLAttr.Min "1"
+                            HTMLAttr.Value f.UpdateId
+                            inputStyle
+                            OnChange (fun e -> dispatch (CrudFormStr("update-id", (e.target :?> Browser.Types.HTMLInputElement).value)))
+                        ] []
+                    ]
+                    div [ Style [ CSSProp.Custom("flex","1"); CSSProp.Custom("min-width","160px") ] ] [
+                        label [ fieldLbl ] [ str "Title" ]
+                        domEl "input" [
+                            HTMLAttr.Type "text"; HTMLAttr.Placeholder "Updated title"
+                            HTMLAttr.Value f.UpdateTitle
+                            inputStyle
+                            OnChange (fun e -> dispatch (CrudFormStr("update-title", (e.target :?> Browser.Types.HTMLInputElement).value)))
+                        ] []
+                    ]
+                ]
+                label [ checkboxRowSt ] [
+                    domEl "input" [
+                        HTMLAttr.Type "checkbox"
+                        HTMLAttr.Checked f.UpdateCompleted
+                        OnChange (fun e -> dispatch (CrudFormBool("update-completed", (e.target :?> Browser.Types.HTMLInputElement).``checked``)))
+                    ] []
+                    str "Completed"
+                ]
+                domEl "fui-button" [
+                    HTMLAttr.Custom("variant", box "primary")
+                    HTMLAttr.Custom("size", box "sm")
+                    if loading "crud-update" || f.UpdateTitle.Trim() = "" then HTMLAttr.Custom("disabled", box "")
+                    OnClick (fun _ -> dispatch (CrudSend("crud-update", "PUT", $"/api/items/{f.UpdateId}", itemJson f.UpdateTitle f.UpdateCompleted)))
+                ] [ str (if loading "crud-update" then "Sending…" else "Update Item") ]
+            ]
+            responsePanel "crud-update"
+        ]
+
+        // ── DELETE ────────────────────────────────────────────────────────────
+        div [ cardStyle ] [
+            p [ labelStyle ] [ str "Delete Item" ]
+            methodRow "DELETE" "/api/items/:id"
+            div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("align-items","flex-end"); CSSProp.Custom("gap","0.75rem"); CSSProp.Custom("flex-wrap","wrap") ] ] [
+                div [ Style [ CSSProp.Custom("flex","0 0 110px") ] ] [
+                    label [ fieldLbl ] [ str "ID" ]
+                    domEl "input" [
+                        HTMLAttr.Type "number"; HTMLAttr.Min "1"
+                        HTMLAttr.Value f.DeleteId
+                        inputStyle
+                        OnChange (fun e -> dispatch (CrudFormStr("delete-id", (e.target :?> Browser.Types.HTMLInputElement).value)))
+                    ] []
+                ]
+                domEl "fui-button" [
+                    HTMLAttr.Custom("variant", box "danger")
+                    HTMLAttr.Custom("size", box "sm")
+                    if loading "crud-delete" then HTMLAttr.Custom("disabled", box "")
+                    OnClick (fun _ -> dispatch (CrudSend("crud-delete", "DELETE", $"/api/items/{f.DeleteId}", "")))
+                ] [ str (if loading "crud-delete" then "Sending…" else "Delete Item") ]
+            ]
+            responsePanel "crud-delete"
+        ]
+
+        // ── Source code ───────────────────────────────────────────────────────
+        div [] [
+            p [ labelStyle ] [ str "Server source (F#)" ]
+            wc "fui-code-block" [ "language", "fsharp"; "code", demo.SourceCode ] []
+        ]
+    ]
+
 let backendDemoPage (slug: string) (model: Model) (dispatch: Msg -> unit) =
     match backendDemos |> List.tryFind (fun d -> d.Slug = slug) with
     | None ->
         div [ ClassName "comp-page" ] [ h1 [] [ str $"Demo not found: {slug}" ] ]
+    | Some demo when demo.Slug = "crud-api" ->
+        crudApiPage demo model dispatch
     | Some demo ->
         let state   = model.BackendResults |> Map.tryFind slug |> Option.defaultValue Idle
         let loading = state = Fetching
