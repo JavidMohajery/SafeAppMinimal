@@ -48,6 +48,10 @@ let webApp =
         get Route.err429 (errDemo 429 "Too Many Requests"     "Rate limit exceeded. Retry after 60 seconds.")
         get Route.err500 (errDemo 500 "Internal Server Error" "An unexpected error occurred. The server could not process your request.")
 
+        // JWT auth
+        post Route.authLogin Demos.AuthDemo.login
+        get  Route.authMe    Demos.AuthDemo.whoami
+
         // CRUD item API
         get     Route.items        Demos.CrudApi.getAll
         get     Route.itemsPaged   Demos.CrudApi.getPage

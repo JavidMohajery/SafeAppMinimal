@@ -17,3 +17,7 @@ module Route =
     // CRUD items
     let items      = "/api/items"
     let itemsPaged = "/api/items/paged"
+
+    // JWT auth
+    let authLogin = "/api/demo/auth/login"
+    let authMe    = "/api/demo/auth/me"

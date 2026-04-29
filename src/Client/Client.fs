@@ -33,6 +33,12 @@ type PagFormState = {
     Page     : int
 }
 
+type AuthFormState = {
+    Username : string
+    Password : string
+    Token    : string
+}
+
 type Model = {
     Page          : Page
     Hash          : string
@@ -42,6 +48,7 @@ type Model = {
     SidebarOpen   : bool
     CrudForm      : CrudFormState
     PagForm       : PagFormState
+    AuthForm      : AuthFormState
 }
 
 type Msg =
@@ -58,6 +65,10 @@ type Msg =
     | CrudSend     of string * string * string * string
     | PagFormStr   of string * string
     | PagFetch     of int
+    | AuthFormStr  of string * string
+    | AuthLogin
+    | AuthReceive  of string * int * string
+    | AuthCallMe
 
 let urlCatLabel (slug: string) =
     match slug with
@@ -92,7 +103,8 @@ let init () =
     let hash = window.location.hash
     let defaultCrud = { GetId = "1"; CreateTitle = ""; CreateCompleted = false; UpdateId = "1"; UpdateTitle = ""; UpdateCompleted = false; DeleteId = "1" }
     let defaultPag  = { Filter = ""; SortBy = "id"; SortDir = "asc"; PageSize = "5"; Page = 1 }
-    { Page = parsePage hash; Hash = hash; ElmishCounter = counter; BackendResults = Map.empty; Theme = Dark; SidebarOpen = false; CrudForm = defaultCrud; PagForm = defaultPag }, Cmd.none
+    let defaultAuth = { Username = "admin"; Password = "password123"; Token = "" }
+    { Page = parsePage hash; Hash = hash; ElmishCounter = counter; BackendResults = Map.empty; Theme = Dark; SidebarOpen = false; CrudForm = defaultCrud; PagForm = defaultPag; AuthForm = defaultAuth }, Cmd.none
 
 [<Fable.Core.Emit("fetch($0).then(r=>r.text().then(b=>({status:r.status,body:b})))")>]
 let private fetchGet (url: string) : Fable.Core.JS.Promise<{| status: int; body: string |}> = jsNative
@@ -108,6 +120,15 @@ let private encodeQuery (s: string) : string = jsNative
 
 [<Fable.Core.Emit("(function(s){try{var o=JSON.parse(s);return{totalPages:o.totalPages||1,page:o.page||1,total:o.total||0}}catch(_){return{totalPages:1,page:1,total:0}}}($0))")>]
 let private parsePagMeta (json: string) : {| totalPages: int; page: int; total: int |} = jsNative
+
+[<Fable.Core.Emit("fetch($0,{headers:{Authorization:'Bearer '+$1}}).then(r=>r.text().then(b=>({status:r.status,body:b})))")>]
+let private fetchBearer (url: string) (token: string) : Fable.Core.JS.Promise<{| status: int; body: string |}> = jsNative
+
+[<Fable.Core.Emit("JSON.stringify({username:$0,password:$1})")>]
+let private loginJson (username: string) (password: string) : string = jsNative
+
+[<Fable.Core.Emit("(function(s){try{return JSON.parse(s).token||''}catch(_){return ''}}($0))")>]
+let private extractToken (json: string) : string = jsNative
 
 let update msg model =
     match msg with
@@ -181,6 +202,37 @@ let update msg model =
                 (fun r -> BackendReceive("pag-result", r.status, r.body))
                 (fun ex -> BackendError("pag-result", ex.Message))
         { model with PagForm = p; BackendResults = model.BackendResults |> Map.add "pag-result" Fetching }, cmd
+    | AuthFormStr(field, value) ->
+        let f    = model.AuthForm
+        let form =
+            match field with
+            | "username" -> { f with Username = value }
+            | "password" -> { f with Password = value }
+            | _          -> f
+        { model with AuthForm = form }, Cmd.none
+    | AuthLogin ->
+        let f   = model.AuthForm
+        let cmd =
+            Cmd.OfPromise.either
+                (fun () -> fetchJson "/api/demo/auth/login" "POST" (loginJson f.Username f.Password))
+                ()
+                (fun r -> AuthReceive("auth-login", r.status, r.body))
+                (fun ex -> BackendError("auth-login", ex.Message))
+        { model with BackendResults = model.BackendResults |> Map.add "auth-login" Fetching }, cmd
+    | AuthReceive(key, status, body) ->
+        let m1 = { model with BackendResults = model.BackendResults |> Map.add key (Done(status, body)) }
+        if key = "auth-login" && status = 200 then
+            { m1 with AuthForm = { m1.AuthForm with Token = extractToken body } }, Cmd.none
+        else m1, Cmd.none
+    | AuthCallMe ->
+        let token = model.AuthForm.Token
+        let cmd =
+            Cmd.OfPromise.either
+                (fun () -> fetchBearer "/api/demo/auth/me" token)
+                ()
+                (fun r -> BackendReceive("auth-me", r.status, r.body))
+                (fun ex -> BackendError("auth-me", ex.Message))
+        { model with BackendResults = model.BackendResults |> Map.add "auth-me" Fetching }, cmd
 
 // Elmish 4 subscription: hashchange listener.
 let hashSub (_model: Model) : Sub<Msg> =
@@ -321,6 +373,7 @@ let sidebar (model: Model) (dispatch: Msg -> unit) =
                 sidebarLink "CRUD API"             "#/backend/crud-api"        model.Hash
                 sidebarLink "Error Handling"       "#/backend/error-handling"  model.Hash
                 sidebarLink "Pagination & Filters" "#/backend/pagination-api"  model.Hash
+                sidebarLink "JWT Auth"             "#/backend/jwt-auth"        model.Hash
             ]
             div [ ClassName "sidebar-group" ] [
                 div [ ClassName "sidebar-group-label" ] [ str "Examples" ]
@@ -2123,6 +2176,53 @@ let private backendDemos = [
                 page       = pg
                 pageSize   = ps
                 totalPages = totalPages |} next ctx""" }
+
+    {
+        Slug        = "jwt-auth"
+        Name        = "JWT Auth"
+        Description = "Stateless authentication with HS256 JSON Web Tokens. POST credentials to receive a signed token, then attach it as a Bearer header to call the protected /me endpoint."
+        Method      = "POST"
+        Url         = "/api/demo/auth/login"
+        SourceCode  =
+    """// Demos/AuthDemo.fs
+    let private secretBytes = Encoding.UTF8.GetBytes("...")
+
+    let private makeJwt (username: string) (role: string) =
+        let header   = "{\"alg\":\"HS256\",\"typ\":\"JWT\"}"
+        let now      = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
+        let payload  =
+            sprintf "{\"sub\":\"%s\",\"role\":\"%s\",\"iat\":%d,\"exp\":%d}"
+                username role now (now + 3600L)
+        let unsigned = b64urlStr header + "." + b64urlStr payload
+        use hmac     = new HMACSHA256(secretBytes)
+        unsigned + "." + b64url (hmac.ComputeHash(Encoding.UTF8.GetBytes(unsigned)))
+
+    // POST /api/demo/auth/login   body: { "username": "admin", "password": "password123" }
+    let login : HttpHandler = fun next ctx -> task {
+        let! dto = ctx.BindJsonAsync<LoginDto>()
+        match users |> Map.tryFind dto.Username with
+        | Some (pw, role) when pw = dto.Password ->
+            return! json {| token = makeJwt dto.Username role
+                            tokenType = "Bearer"; expiresIn = 3600 |} next ctx
+        | _ ->
+            return! (setStatusCode 401 >=> json {| error = "Invalid credentials" |}) next ctx
+    }
+
+    // GET /api/demo/auth/me   requires Authorization: Bearer <token>
+    let whoami : HttpHandler = fun next ctx ->
+        let authHeader =
+            match ctx.Request.Headers.TryGetValue("Authorization") with
+            | true, v -> v.ToString()
+            | _ -> ""
+        if authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase) then
+            let token = authHeader.Substring("Bearer ".Length).Trim()
+            match verifyJwt token with
+            | Ok claims -> json {| username = claims.sub; role = claims.role |} next ctx
+            | Error e   -> (setStatusCode 401 >=> json {| error = e |}) next ctx
+        else
+            (setStatusCode 401 >=> json {| error = "Missing Authorization header" |}) next ctx
+
+    // Demo users: admin / password123   or   user / letmein""" }
 ]
 
 let private crudApiPage (demo: BackendDemoMeta) (model: Model) (dispatch: Msg -> unit) =
@@ -2436,13 +2536,13 @@ let private pagApiPage (demo: BackendDemoMeta) (model: Model) (dispatch: Msg -> 
                     ]
                     // Pagination nav
                     div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("align-items","center"); CSSProp.Custom("gap","0.5rem"); MarginTop "1rem"; CSSProp.Custom("flex-wrap","wrap") ] ] [
-                        domEl "fui-button" [
+                        yield domEl "fui-button" [
                             HTMLAttr.Custom("variant", box "secondary")
                             HTMLAttr.Custom("size", box "sm")
                             if meta.page <= 1 then HTMLAttr.Custom("disabled", box "")
                             OnClick (fun _ -> dispatch (PagFetch 1))
                         ] [ str "« First" ]
-                        domEl "fui-button" [
+                        yield domEl "fui-button" [
                             HTMLAttr.Custom("variant", box "secondary")
                             HTMLAttr.Custom("size", box "sm")
                             if meta.page <= 1 then HTMLAttr.Custom("disabled", box "")
@@ -2457,13 +2557,13 @@ let private pagApiPage (demo: BackendDemoMeta) (model: Model) (dispatch: Msg -> 
                                 HTMLAttr.Custom("size", box "sm")
                                 OnClick (fun _ -> dispatch (PagFetch pg))
                             ] [ str (string pg) ]
-                        domEl "fui-button" [
+                        yield domEl "fui-button" [
                             HTMLAttr.Custom("variant", box "secondary")
                             HTMLAttr.Custom("size", box "sm")
                             if meta.page >= meta.totalPages then HTMLAttr.Custom("disabled", box "")
                             OnClick (fun _ -> dispatch (PagFetch (meta.page + 1)))
                         ] [ str "Next ›" ]
-                        domEl "fui-button" [
+                        yield domEl "fui-button" [
                             HTMLAttr.Custom("variant", box "secondary")
                             HTMLAttr.Custom("size", box "sm")
                             if meta.page >= meta.totalPages then HTMLAttr.Custom("disabled", box "")
@@ -2480,6 +2580,119 @@ let private pagApiPage (demo: BackendDemoMeta) (model: Model) (dispatch: Msg -> 
         ]
     ]
 
+let private jwtAuthPage (demo: BackendDemoMeta) (model: Model) (dispatch: Msg -> unit) =
+    let f              = model.AuthForm
+    let loginState     = model.BackendResults |> Map.tryFind "auth-login" |> Option.defaultValue Idle
+    let meState        = model.BackendResults |> Map.tryFind "auth-me"    |> Option.defaultValue Idle
+    let loginLoading   = loginState = Fetching
+    let meLoading      = meState    = Fetching
+    let hasToken       = f.Token.Length > 0
+    let statusVariant code = if code >= 200 && code < 300 then "success" elif code >= 500 then "danger" elif code >= 400 then "warning" else "info"
+
+    let labelStyle   = Style [ FontFamily "'JetBrains Mono',monospace"; FontSize "0.65rem"; FontWeight "700"; CSSProp.Custom("text-transform","uppercase"); CSSProp.Custom("letter-spacing","0.08em"); Color "#6E6E76"; MarginBottom "0.5rem" ]
+    let codePreStyle = Style [ Margin "0"; FontFamily "'JetBrains Mono',monospace"; FontSize "0.8rem"; Color "#E8E8ED"; LineHeight "1.7"; CSSProp.Custom("white-space","pre") ]
+    let panelStyle   = Style [ Background "#0D0D0F"; Border "1px solid #2A2A2E"; BorderRadius "8px"; Padding "1.125rem 1.375rem"; CSSProp.Custom("overflow","auto") ]
+    let cardStyle    = Style [ Background "#161618"; Border "1px solid #2A2A2E"; BorderRadius "10px"; Padding "1.25rem 1.5rem"; MarginBottom "1.25rem" ]
+    let inputStyle   = Style [ Background "#0D0D0F"; Border "1px solid #2A2A2E"; BorderRadius "6px"; Color "#E8E8ED"; FontFamily "'JetBrains Mono',monospace"; FontSize "0.875rem"; Padding "0.5rem 0.75rem"; Outline "none"; CSSProp.Custom("box-sizing","border-box"); Width "100%" ]
+    let fieldLbl     = Style [ Display DisplayOptions.Block; FontFamily "'JetBrains Mono',monospace"; FontSize "0.72rem"; Color "#6E6E76"; MarginBottom "0.35rem" ]
+
+    let responsePanel (state: FetchState) =
+        match state with
+        | Idle ->
+            wc "fui-empty-state" [ "title", "No response yet"; "description", "Send the request to see the result." ] []
+        | Fetching ->
+            div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("justify-content","center"); Padding "1.5rem" ] ] [
+                wc "fui-spinner" [ "label", "Waiting…" ] []
+            ]
+        | Failed err ->
+            wc "fui-alert" [ "variant", "danger"; "title", "Network error" ] [ str err ]
+        | Done(status, body) ->
+            div [] [
+                div [ Style [ MarginBottom "0.75rem" ] ] [
+                    wc "fui-badge" [ "variant", statusVariant status ] [ str $"HTTP {status}" ]
+                ]
+                div [ panelStyle ] [ pre [ codePreStyle ] [ str body ] ]
+            ]
+
+    div [ ClassName "comp-page" ] [
+        div [ ClassName "comp-header" ] [
+            div [ ClassName "comp-header-row" ] [
+                h1 [ ClassName "comp-name" ] [ str demo.Name ]
+                wc "fui-badge" [ "variant", "accent" ] [ str "Backend" ]
+            ]
+            p [ Style [ FontFamily "'Sora',sans-serif"; Color "#6E6E76"; Margin "0" ] ] [ str demo.Description ]
+        ]
+
+        // ── Step 1: Login ──────────────────────────────────────────────────────
+        div [ cardStyle ] [
+            p [ labelStyle ] [ str "Step 1 — POST /api/demo/auth/login" ]
+            div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("gap","1rem"); CSSProp.Custom("flex-wrap","wrap"); CSSProp.Custom("align-items","flex-end"); MarginBottom "1rem" ] ] [
+                div [ Style [ CSSProp.Custom("flex","1 1 180px") ] ] [
+                    label [ fieldLbl ] [ str "Username" ]
+                    domEl "input" [
+                        HTMLAttr.Type "text"; HTMLAttr.Value f.Username
+                        inputStyle
+                        OnChange (fun e -> dispatch (AuthFormStr("username", (e.target :?> Browser.Types.HTMLInputElement).value)))
+                    ] []
+                ]
+                div [ Style [ CSSProp.Custom("flex","1 1 180px") ] ] [
+                    label [ fieldLbl ] [ str "Password" ]
+                    domEl "input" [
+                        HTMLAttr.Type "password"; HTMLAttr.Value f.Password
+                        inputStyle
+                        OnChange (fun e -> dispatch (AuthFormStr("password", (e.target :?> Browser.Types.HTMLInputElement).value)))
+                    ] []
+                ]
+                domEl "fui-button" [
+                    HTMLAttr.Custom("variant", box "primary")
+                    HTMLAttr.Custom("size", box "sm")
+                    if loginLoading then HTMLAttr.Custom("disabled", box "")
+                    OnClick (fun _ -> dispatch AuthLogin)
+                ] [ str (if loginLoading then "Logging in…" else "Login") ]
+            ]
+            div [ Style [ MarginBottom "0.5rem" ] ] [
+                span [ Style [ FontFamily "'JetBrains Mono',monospace"; FontSize "0.72rem"; Color "#6E6E76" ] ] [
+                    str "Demo users: "
+                ]
+                wc "fui-badge" [] [ str "admin / password123" ]
+                span [ Style [ Margin "0 0.4rem"; Color "#6E6E76" ] ] [ str "or" ]
+                wc "fui-badge" [] [ str "user / letmein" ]
+            ]
+            responsePanel loginState
+        ]
+
+        // ── Step 2: Call protected endpoint ────────────────────────────────────
+        div [ cardStyle ] [
+            p [ labelStyle ] [ str "Step 2 — GET /api/demo/auth/me  (requires Bearer token)" ]
+            // Token display
+            div [ Style [ Background "#0D0D0F"; Border "1px solid #2A2A2E"; BorderRadius "6px"; Padding "0.625rem 0.875rem"; MarginBottom "1rem"; CSSProp.Custom("overflow","auto") ] ] [
+                if hasToken then
+                    span [ Style [ FontFamily "'JetBrains Mono',monospace"; FontSize "0.75rem"; Color "#A0E0A0"; CSSProp.Custom("word-break","break-all") ] ] [
+                        str $"Bearer {f.Token}"
+                    ]
+                else
+                    span [ Style [ FontFamily "'JetBrains Mono',monospace"; FontSize "0.75rem"; Color "#6E6E76"; FontStyle "italic" ] ] [
+                        str "No token yet — complete Step 1 first"
+                    ]
+            ]
+            domEl "fui-button" [
+                HTMLAttr.Custom("variant", box "primary")
+                HTMLAttr.Custom("size", box "sm")
+                if meLoading || not hasToken then HTMLAttr.Custom("disabled", box "")
+                OnClick (fun _ -> dispatch AuthCallMe)
+            ] [ str (if meLoading then "Calling…" else "Call /me") ]
+            div [ Style [ MarginTop "1rem" ] ] [
+                responsePanel meState
+            ]
+        ]
+
+        // ── Source code ────────────────────────────────────────────────────────
+        div [] [
+            p [ labelStyle ] [ str "Server source (F#)" ]
+            wc "fui-code-block" [ "language", "fsharp"; "code", demo.SourceCode ] []
+        ]
+    ]
+
 let backendDemoPage (slug: string) (model: Model) (dispatch: Msg -> unit) =
     match backendDemos |> List.tryFind (fun d -> d.Slug = slug) with
     | None ->
@@ -2488,6 +2701,8 @@ let backendDemoPage (slug: string) (model: Model) (dispatch: Msg -> unit) =
         crudApiPage demo model dispatch
     | Some demo when demo.Slug = "pagination-api" ->
         pagApiPage demo model dispatch
+    | Some demo when demo.Slug = "jwt-auth" ->
+        jwtAuthPage demo model dispatch
     | Some demo ->
         let state   = model.BackendResults |> Map.tryFind slug |> Option.defaultValue Idle
         let loading = state = Fetching
