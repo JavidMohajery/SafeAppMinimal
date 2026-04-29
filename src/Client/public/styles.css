@@ -359,3 +359,193 @@ button:hover {
   font-family: var(--font-mono);
   color: var(--text-muted);
 }
+
+/* ── Light theme ─────────────────────────────────────────────────────────────── */
+html.theme-light {
+  --bg:         #F7F7FA;
+  --surface:    #FFFFFF;
+  --surface-2:  #F0F0F4;
+  --border:     #E2E2E8;
+  --text:       #111113;
+  --text-muted: #6E6E76;
+  --accent:     #7C3AED;
+  --accent-hi:  #6D28D9;
+  --accent-dim: rgba(124, 58, 237, 0.08);
+}
+
+html.theme-light .topbar {
+  background: rgba(247, 247, 250, 0.88);
+}
+
+/* ── Hamburger (mobile only) ─────────────────────────────────────────────────── */
+.hamburger { display: none; }
+
+/* ── Mobile sidebar ──────────────────────────────────────────────────────────── */
+.sidebar-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 99;
+}
+
+@media (max-width: 768px) {
+  .sidebar {
+    transform: translateX(-100%);
+    transition: transform 0.25s ease;
+  }
+  .sidebar--open {
+    transform: translateX(0);
+  }
+  .sidebar-overlay.visible { display: block; }
+  .shell-main { margin-left: 0; }
+  .page-content { padding: 1.5rem 1.25rem; }
+  .hamburger { display: inline-flex; }
+}
+
+/* ── Home hero ───────────────────────────────────────────────────────────────── */
+.home-hero {
+  padding: 2rem 0 3rem;
+  max-width: 640px;
+}
+
+.home-hero h1 {
+  font-family: var(--font-mono);
+  font-size: 2.75rem;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.04em;
+  line-height: 1.1;
+  margin-bottom: 1rem;
+}
+
+.home-hero h1 .accent { color: var(--accent); }
+
+.home-hero p {
+  color: var(--text-muted);
+  font-size: 1.0625rem;
+  line-height: 1.7;
+  margin-bottom: 2rem;
+}
+
+.home-cta {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 2rem;
+}
+
+.home-cta-btn--primary,
+.home-cta-btn--secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 40px;
+  padding: 0 1.25rem;
+  border-radius: var(--r-md);
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.home-cta-btn--primary {
+  background: var(--accent);
+  color: #fff;
+  border: 1px solid var(--accent);
+}
+
+.home-cta-btn--primary:hover {
+  background: var(--accent-hi);
+  border-color: var(--accent-hi);
+  color: #fff;
+}
+
+.home-cta-btn--secondary {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+.home-cta-btn--secondary:hover {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+  color: var(--text);
+}
+
+.home-badges {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+/* ── Category grid ───────────────────────────────────────────────────────────── */
+.home-cats {
+  margin: 0 0 3rem;
+}
+
+.home-cats-title {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+  margin-bottom: 1rem;
+}
+
+.home-cat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 0.875rem;
+}
+
+.home-cat-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 1rem 1.125rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  text-decoration: none;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.home-cat-card:hover {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+}
+
+.cat-card-name {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.cat-card-count {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.cat-card-desc {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin-top: 0.25rem;
+}
+
+/* ── Home samples ────────────────────────────────────────────────────────────── */
+.home-samples-title {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+  margin-bottom: 1rem;
+}

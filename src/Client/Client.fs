@@ -13,19 +13,26 @@ type Page = Home | GettingStarted | CategoryIndex of string | BackendDemo of str
 
 type FetchState = Idle | Fetching | Done of int * string | Failed of string
 
+type Theme = Dark | Light
+
 type Model = {
     Page          : Page
     Hash          : string
     ElmishCounter : Pages.CounterElmish.Model
     BackendResults: Map<string, FetchState>
+    Theme         : Theme
+    SidebarOpen   : bool
 }
 
 type Msg =
     | UrlChanged of string
     | ElmishCounterMsg of Pages.CounterElmish.Msg
-    | BackendFetch   of string * string          // slug, url
-    | BackendReceive of string * int * string    // slug, status, body
-    | BackendError   of string * string          // slug, error message
+    | BackendFetch   of string * string
+    | BackendReceive of string * int * string
+    | BackendError   of string * string
+    | ToggleTheme
+    | ToggleSidebar
+    | CloseSidebar
 
 let urlCatLabel (slug: string) =
     match slug with
@@ -58,7 +65,7 @@ let parsePage (hash: string) =
 let init () =
     let counter, _ = Pages.CounterElmish.init ()
     let hash = window.location.hash
-    { Page = parsePage hash; Hash = hash; ElmishCounter = counter; BackendResults = Map.empty }, Cmd.none
+    { Page = parsePage hash; Hash = hash; ElmishCounter = counter; BackendResults = Map.empty; Theme = Dark; SidebarOpen = false }, Cmd.none
 
 [<Fable.Core.Emit("fetch($0).then(r=>r.text().then(b=>({status:r.status,body:b})))")>]
 let private fetchGet (url: string) : Fable.Core.JS.Promise<{| status: int; body: string |}> = jsNative
@@ -66,7 +73,7 @@ let private fetchGet (url: string) : Fable.Core.JS.Promise<{| status: int; body:
 let update msg model =
     match msg with
     | UrlChanged hash ->
-        { model with Page = parsePage hash; Hash = hash }, Cmd.none
+        { model with Page = parsePage hash; Hash = hash; SidebarOpen = false }, Cmd.none
     | ElmishCounterMsg sub ->
         let m, cmd = Pages.CounterElmish.update sub model.ElmishCounter
         { model with ElmishCounter = m }, Cmd.map ElmishCounterMsg cmd
@@ -81,6 +88,14 @@ let update msg model =
         { model with BackendResults = model.BackendResults |> Map.add slug (Done(status, body)) }, Cmd.none
     | BackendError(slug, msg) ->
         { model with BackendResults = model.BackendResults |> Map.add slug (Failed msg) }, Cmd.none
+    | ToggleTheme ->
+        let newTheme = if model.Theme = Dark then Light else Dark
+        document.documentElement.className <- if newTheme = Light then "theme-light" else ""
+        { model with Theme = newTheme }, Cmd.none
+    | ToggleSidebar ->
+        { model with SidebarOpen = not model.SidebarOpen }, Cmd.none
+    | CloseSidebar ->
+        { model with SidebarOpen = false }, Cmd.none
 
 // Elmish 4 subscription: hashchange listener.
 let hashSub (_model: Model) : Sub<Msg> =
@@ -107,8 +122,8 @@ let sidebarLink (label: string) (href: string) (currentHash: string) =
         Href href
     ] [ str label ]
 
-let sidebar (model: Model) =
-    aside [ ClassName "sidebar" ] [
+let sidebar (model: Model) (dispatch: Msg -> unit) =
+    aside [ ClassName (if model.SidebarOpen then "sidebar sidebar--open" else "sidebar") ] [
         div [ ClassName "sidebar-logo" ] [
             img [ Src "/favicon.png"; Alt "logo" ]
             span [] [
@@ -245,9 +260,10 @@ let breadcrumbItems (page: Page) : (string * bool) list =
         let name = ComponentRegistry.bySlug slug |> Option.map (fun m -> m.Name) |> Option.defaultValue slug
         [ "Home", false; "Components", false; name, true ]
 
-let topbar (model: Model) =
+let topbar (model: Model) (dispatch: Msg -> unit) =
     let crumbs = breadcrumbItems model.Page
     header [ ClassName "topbar" ] [
+        button [ ClassName "icon-btn hamburger"; OnClick (fun _ -> dispatch ToggleSidebar) ] [ str "☰" ]
         div [ ClassName "breadcrumb" ] [
             yield!
                 crumbs
@@ -260,6 +276,7 @@ let topbar (model: Model) =
                 |> List.concat
         ]
         div [ ClassName "topbar-actions" ] [
+            button [ ClassName "icon-btn"; OnClick (fun _ -> dispatch ToggleTheme); Title "Toggle theme" ] [ str (if model.Theme = Light then "☾" else "☀") ]
             a [ ClassName "icon-btn"; Href "https://github.com/safe-stack/SAFE-template"; Title "GitHub" ] [ str "GH" ]
         ]
     ]
@@ -267,361 +284,117 @@ let topbar (model: Model) =
 // ── Pages ─────────────────────────────────────────────────────────────────────
 
 let homePage =
-    div [ ClassName "home-welcome" ] [
-        h1 [] [
-            str "Fable"
-            span [ ClassName "hi" ] [ str "UI" ]
-        ]
-        p [] [ str "A comprehensive reference of web UI components and backend patterns." ]
-        p [] [ str "Every component is a standalone Web Component — drop it into any HTML page." ]
-
-        div [ ClassName "component-preview" ] [
-            div [ ClassName "preview-header" ] [
-                span [ ClassName "preview-tag" ] [ str "fui-button" ]
-                span [ ClassName "preview-badge" ] [ str "Inputs & Forms" ]
+    let catCards = [
+        "inputs",       "Inputs & Forms",  16, "Buttons, inputs, selects, toggles, pickers…"
+        "layout",       "Layout",           8,  "Grid, stack, container, scroll area…"
+        "navigation",   "Navigation",       10, "Tabs, breadcrumb, pagination, menus…"
+        "feedback",     "Feedback",         8,  "Badge, spinner, alert, toast, progress…"
+        "overlay",      "Overlay",          5,  "Modal, drawer, tooltip, popover…"
+        "data-display", "Data Display",     12, "Card, stat, avatar, table, timeline…"
+        "typography",   "Typography",       7,  "Heading, text, label, code, prose…"
+        "charts",       "Charts",           4,  "Bar, line, pie, sparkline…"
+    ]
+    div [] [
+        // ── Hero ──────────────────────────────────────────────────────────────
+        div [ ClassName "home-hero" ] [
+            h1 [] [
+                str "Fable"
+                span [ ClassName "accent" ] [ str "UI" ]
+                br []
+                str "Component Library"
             ]
-            div [ ClassName "preview-body" ] [
-                div [ ClassName "preview-row" ] [
-                    wc "fui-button" [ "variant", "primary"   ] [ str "Save changes" ]
-                    wc "fui-button" [ "variant", "secondary" ] [ str "Cancel" ]
-                    wc "fui-button" [ "variant", "ghost"     ] [ str "Menu" ]
-                    wc "fui-button" [ "variant", "danger"    ] [ str "Delete" ]
-                    wc "fui-button" [ "variant", "primary"; "disabled", "" ] [ str "Disabled" ]
-                ]
-                div [ ClassName "preview-row"; Style [ MarginTop "0.75rem" ] ] [
-                    wc "fui-button" [ "variant", "primary"; "size", "sm" ] [ str "Small" ]
-                    wc "fui-button" [ "variant", "primary"; "size", "md" ] [ str "Medium" ]
-                    wc "fui-button" [ "variant", "primary"; "size", "lg" ] [ str "Large" ]
-                ]
+            p [] [ str "A comprehensive reference of web UI components built as standalone Web Components. Drop any fui-* element into any framework — or no framework at all." ]
+            div [ ClassName "home-cta" ] [
+                a [ ClassName "home-cta-btn--primary";   Href "#/category/inputs" ] [ str "Browse Components" ]
+                a [ ClassName "home-cta-btn--secondary"; Href "#/getting-started" ] [ str "Getting Started" ]
             ]
-        ]
-
-        div [ ClassName "component-preview" ] [
-            div [ ClassName "preview-header" ] [
-                span [ ClassName "preview-tag" ] [ str "fui-input" ]
-                span [ ClassName "preview-badge" ] [ str "Inputs & Forms" ]
-            ]
-            div [ ClassName "preview-body" ] [
-                div [ Style [ Display DisplayOptions.Flex; FlexDirection "column"; CSSProp.Custom("gap", "0.75rem") ] ] [
-                    wc "fui-input" [ "label", "Email address"; "type", "email"; "placeholder", "you@example.com" ] []
-                    wc "fui-input" [ "label", "Password";      "type", "password"; "placeholder", "••••••••"     ] []
-                    wc "fui-input" [ "label", "Disabled";      "disabled", ""; "value", "Cannot edit this"       ] []
-                    wc "fui-input" [ "label", "With error";    "error", "This field is required"                 ] []
-                ]
+            div [ ClassName "home-badges" ] [
+                wc "fui-tag" [ "variant", "accent" ] [ str "Fable" ]
+                wc "fui-tag" [] [ str "Saturn" ]
+                wc "fui-tag" [] [ str "Elmish" ]
+                wc "fui-tag" [] [ str "Vite" ]
+                wc "fui-tag" [] [ str "Web Components" ]
             ]
         ]
-        div [ ClassName "component-preview" ] [
-            div [ ClassName "preview-header" ] [
-                span [ ClassName "preview-tag" ] [ str "fui-textarea" ]
-                span [ ClassName "preview-badge" ] [ str "Inputs & Forms" ]
-            ]
-            div [ ClassName "preview-body" ] [
-                div [ Style [ Display DisplayOptions.Flex; FlexDirection "column"; CSSProp.Custom("gap", "0.75rem") ] ] [
-                    wc "fui-textarea" [ "label", "Message";  "placeholder", "Write something..."    ] []
-                    wc "fui-textarea" [ "label", "Notes";    "rows", "5"; "resize", "both"          ] []
-                    wc "fui-textarea" [ "label", "Disabled"; "disabled", ""; "value", "Cannot edit" ] []
-                    wc "fui-textarea" [ "label", "Error";    "error", "This field is required"      ] []
-                ]
-            ]
-        ]
-
-        div [ ClassName "component-preview" ] [
-            div [ ClassName "preview-header" ] [
-                span [ ClassName "preview-tag" ] [ str "fui-select" ]
-                span [ ClassName "preview-badge" ] [ str "Inputs & Forms" ]
-            ]
-            div [ ClassName "preview-body" ] [
-                let fwOpts = """[{"value":"react","label":"React"},{"value":"vue","label":"Vue"},{"value":"svelte","label":"Svelte"},{"value":"solid","label":"Solid"}]"""
-                let sizeOpts = """[{"value":"sm","label":"Small"},{"value":"md","label":"Medium"},{"value":"lg","label":"Large"}]"""
-                div [ Style [ Display DisplayOptions.Flex; FlexDirection "column"; CSSProp.Custom("gap", "0.75rem") ] ] [
-                    wc "fui-select" [ "label", "Framework"; "placeholder", "Pick a framework..."; "options", fwOpts ] []
-                    wc "fui-select" [ "label", "Size (preselected)"; "value", "md"; "options", sizeOpts ] []
-                    wc "fui-select" [ "label", "Disabled"; "disabled", ""; "value", "react"; "options", fwOpts ] []
-                    wc "fui-select" [ "label", "With error"; "placeholder", "Required..."; "error", "Please select an option"; "options", fwOpts ] []
-                ]
-            ]
-        ]
-
-        div [ ClassName "component-preview" ] [
-            div [ ClassName "preview-header" ] [
-                span [ ClassName "preview-tag" ] [ str "fui-checkbox" ]
-                span [ ClassName "preview-badge" ] [ str "Inputs & Forms" ]
-            ]
-            div [ ClassName "preview-body" ] [
-                div [ Style [ Display DisplayOptions.Flex; FlexDirection "column"; CSSProp.Custom("gap", "0.75rem") ] ] [
-                    wc "fui-checkbox" [ "label", "Accept terms and conditions" ] []
-                    wc "fui-checkbox" [ "label", "Subscribe to newsletter"; "checked", "" ] []
-                    wc "fui-checkbox" [ "label", "Disabled option"; "disabled", "" ] []
-                    wc "fui-checkbox" [ "label", "With error"; "error", "This field is required" ] []
-                ]
-            ]
-        ]
-
-        div [ ClassName "component-preview" ] [
-            div [ ClassName "preview-header" ] [
-                span [ ClassName "preview-tag" ] [ str "fui-radio-group" ]
-                span [ ClassName "preview-badge" ] [ str "Inputs & Forms" ]
-            ]
-            div [ ClassName "preview-body" ] [
-                let rgOpts = """[{"value":"react","label":"React"},{"value":"vue","label":"Vue"},{"value":"svelte","label":"Svelte"}]"""
-                div [ Style [ Display DisplayOptions.Flex; FlexDirection "column"; CSSProp.Custom("gap", "1.25rem") ] ] [
-                    wc "fui-radio-group" [ "label", "Framework";   "name", "hw1"; "options", rgOpts ] []
-                    wc "fui-radio-group" [ "label", "Preselected"; "name", "hw2"; "value", "vue"; "options", rgOpts ] []
-                    wc "fui-radio-group" [ "label", "Disabled";    "name", "hw3"; "disabled", ""; "value", "react"; "options", rgOpts ] []
-                ]
-            ]
-        ]
-
-        div [ ClassName "component-preview" ] [
-            div [ ClassName "preview-header" ] [
-                span [ ClassName "preview-tag" ] [ str "fui-toggle" ]
-                span [ ClassName "preview-badge" ] [ str "Inputs & Forms" ]
-            ]
-            div [ ClassName "preview-body" ] [
-                div [ Style [ Display DisplayOptions.Flex; FlexDirection "column"; CSSProp.Custom("gap", "0.75rem") ] ] [
-                    wc "fui-toggle" [ "label", "Enable notifications" ] []
-                    wc "fui-toggle" [ "label", "Dark mode"; "checked", "" ] []
-                    wc "fui-toggle" [ "label", "Disabled"; "disabled", "" ] []
-                    wc "fui-toggle" [ "label", "With error"; "error", "This setting is required" ] []
-                ]
-            ]
-        ]
-
-        div [ ClassName "component-preview" ] [
-            div [ ClassName "preview-header" ] [
-                span [ ClassName "preview-tag" ] [ str "fui-slider" ]
-                span [ ClassName "preview-badge" ] [ str "Inputs & Forms" ]
-            ]
-            div [ ClassName "preview-body" ] [
-                div [ Style [ Display DisplayOptions.Flex; FlexDirection "column"; CSSProp.Custom("gap", "1rem") ] ] [
-                    wc "fui-slider" [ "label", "Volume";   "value", "40" ] []
-                    wc "fui-slider" [ "label", "Price";    "min", "100"; "max", "1000"; "step", "50"; "value", "400" ] []
-                    wc "fui-slider" [ "label", "Disabled"; "value", "60"; "disabled", "" ] []
-                ]
-            ]
-        ]
-
-        div [ ClassName "component-preview" ] [
-            div [ ClassName "preview-header" ] [
-                span [ ClassName "preview-tag" ] [ str "fui-date-picker" ]
-                span [ ClassName "preview-badge" ] [ str "Inputs & Forms" ]
-            ]
-            div [ ClassName "preview-body" ] [
-                div [ Style [ Display DisplayOptions.Flex; FlexDirection "column"; CSSProp.Custom("gap", "0.75rem") ] ] [
-                    wc "fui-date-picker" [ "label", "Date of birth" ] []
-                    wc "fui-date-picker" [ "label", "Check-in"; "value", "2025-06-01"; "min", "2025-01-01"; "max", "2025-12-31" ] []
-                    wc "fui-date-picker" [ "label", "Disabled"; "value", "2025-03-15"; "disabled", "" ] []
-                    wc "fui-date-picker" [ "label", "With error"; "error", "Please select a valid date" ] []
-                ]
-            ]
-        ]
-
-        div [ ClassName "component-preview" ] [
-            div [ ClassName "preview-header" ] [
-                span [ ClassName "preview-tag" ] [ str "fui-color-picker" ]
-                span [ ClassName "preview-badge" ] [ str "Inputs & Forms" ]
-            ]
-            div [ ClassName "preview-body" ] [
-                div [ Style [ Display DisplayOptions.Flex; FlexDirection "column"; CSSProp.Custom("gap", "0.75rem") ] ] [
-                    wc "fui-color-picker" [ "label", "Brand colour"; "value", "#7C3AED" ] []
-                    wc "fui-color-picker" [ "label", "Accent";       "value", "#3B82F6" ] []
-                    wc "fui-color-picker" [ "label", "Disabled";     "value", "#22C55E"; "disabled", "" ] []
-                    wc "fui-color-picker" [ "label", "With error";   "error", "A colour is required" ] []
-                ]
-            ]
-        ]
-
-        div [ ClassName "component-preview" ] [
-            div [ ClassName "preview-header" ] [
-                span [ ClassName "preview-tag" ] [ str "fui-file-upload" ]
-                span [ ClassName "preview-badge" ] [ str "Inputs & Forms" ]
-            ]
-            div [ ClassName "preview-body" ] [
-                div [ Style [ Display DisplayOptions.Flex; FlexDirection "column"; CSSProp.Custom("gap", "1rem") ] ] [
-                    wc "fui-file-upload" [ "label", "Attachment" ] []
-                    wc "fui-file-upload" [ "label", "Images only"; "accept", "image/*"; "multiple", "" ] []
-                    wc "fui-file-upload" [ "label", "Disabled"; "disabled", "" ] []
-                ]
-            ]
-        ]
-
-        div [ ClassName "component-preview" ] [
-            div [ ClassName "preview-header" ] [
-                span [ ClassName "preview-tag" ] [ str "fui-tabs · fui-breadcrumb · fui-pagination · fui-stepper · fui-menu" ]
-                span [ ClassName "preview-badge" ] [ str "Navigation" ]
-            ]
-            div [ ClassName "preview-body" ] [
-                div [ Style [ Display DisplayOptions.Flex; FlexDirection "column"; CSSProp.Custom("gap", "1.5rem") ] ] [
-                    let tabsJson = """[{"value":"a","label":"Overview"},{"value":"b","label":"Settings"},{"value":"c","label":"Logs"}]"""
-                    wc "fui-tabs" [ "tabs", tabsJson ] [
-                        div [ HTMLAttr.Custom("slot","tab-a") ] [ str "Overview content." ]
-                        div [ HTMLAttr.Custom("slot","tab-b") ] [ str "Settings panel." ]
-                        div [ HTMLAttr.Custom("slot","tab-c") ] [ str "Log output." ]
+        // ── Category grid ──────────────────────────────────────────────────────
+        div [ ClassName "home-cats" ] [
+            p [ ClassName "home-cats-title" ] [ str "Component Categories" ]
+            div [ ClassName "home-cat-grid" ] [
+                for (slug, name, count, desc) in catCards do
+                    yield a [ ClassName "home-cat-card"; Href $"#/category/{slug}" ] [
+                        span [ ClassName "cat-card-name"  ] [ str name ]
+                        span [ ClassName "cat-card-count" ] [ str $"{count} components" ]
+                        span [ ClassName "cat-card-desc"  ] [ str desc ]
                     ]
-                    let bcItems = """[{"label":"Home","href":"/"},{"label":"Components","href":""},{"label":"Navigation","href":""}]"""
-                    wc "fui-breadcrumb" [ "items", bcItems ] []
-                    wc "fui-pagination" [ "total", "10"; "page", "1" ] []
-                    let stepsJson = """[{"label":"Account","description":"Create your account"},{"label":"Profile","description":"Fill in your details"},{"label":"Review","description":"Confirm and submit"}]"""
-                    wc "fui-stepper" [ "steps", stepsJson; "active", "1" ] []
-                    let menuItems = """[{"value":"edit","label":"Edit","disabled":false,"separator":false},{"value":"dup","label":"Duplicate","disabled":false,"separator":false},{"value":"","label":"","disabled":false,"separator":true},{"value":"delete","label":"Delete","disabled":false,"separator":false}]"""
-                    wc "fui-menu" [ "label", "Actions"; "items", menuItems ] []
-                ]
             ]
         ]
-
-        div [ ClassName "component-preview" ] [
-            div [ ClassName "preview-header" ] [
-                span [ ClassName "preview-tag" ] [ str "fui-divider · fui-stack" ]
-                span [ ClassName "preview-badge" ] [ str "Layout" ]
-            ]
-            div [ ClassName "preview-body" ] [
-                div [ Style [ Display DisplayOptions.Flex; FlexDirection "column"; CSSProp.Custom("gap", "1rem") ] ] [
-                    wc "fui-divider" [] []
-                    wc "fui-divider" [ "label", "or" ] []
-                    wc "fui-divider" [ "label", "Section title" ] []
-                    wc "fui-stack" [ "direction", "row"; "gap", "0.75rem" ] [
+        // ── Sample previews ────────────────────────────────────────────────────
+        div [] [
+            p [ ClassName "home-samples-title" ] [ str "Component Samples" ]
+            div [ ClassName "component-preview" ] [
+                div [ ClassName "preview-header" ] [
+                    span [ ClassName "preview-tag" ] [ str "fui-button" ]
+                    span [ ClassName "preview-badge" ] [ str "Inputs & Forms" ]
+                ]
+                div [ ClassName "preview-body" ] [
+                    div [ ClassName "preview-row" ] [
                         wc "fui-button" [ "variant", "primary"   ] [ str "Save changes" ]
                         wc "fui-button" [ "variant", "secondary" ] [ str "Cancel" ]
-                        wc "fui-button" [ "variant", "ghost"     ] [ str "Preview" ]
+                        wc "fui-button" [ "variant", "ghost"     ] [ str "Menu" ]
+                        wc "fui-button" [ "variant", "danger"    ] [ str "Delete" ]
+                    ]
+                    div [ ClassName "preview-row"; Style [ MarginTop "0.75rem" ] ] [
+                        wc "fui-button" [ "variant", "primary"; "size", "sm" ] [ str "Small" ]
+                        wc "fui-button" [ "variant", "primary"; "size", "md" ] [ str "Medium" ]
+                        wc "fui-button" [ "variant", "primary"; "size", "lg" ] [ str "Large" ]
                     ]
                 ]
             ]
-        ]
-
-        div [ ClassName "component-preview" ] [
-            div [ ClassName "preview-header" ] [
-                span [ ClassName "preview-tag" ] [ str "fui-grid · fui-spacer · fui-aspect-ratio · fui-container" ]
-                span [ ClassName "preview-badge" ] [ str "Layout" ]
-            ]
-            div [ ClassName "preview-body" ] [
-                div [ Style [ Display DisplayOptions.Flex; FlexDirection "column"; CSSProp.Custom("gap", "1.5rem") ] ] [
-                    // Grid
-                    wc "fui-grid" [ "cols", "3"; "gap", "0.75rem" ] [
-                        div [ Style [ CSSProp.Custom("background", "#1E1E21"); CSSProp.Custom("border", "1px solid #2A2A2E"); CSSProp.Custom("border-radius", "6px"); Padding "0.625rem 0.875rem"; FontSize "0.8rem"; CSSProp.Custom("color", "#E8E8ED") ] ] [ str "Grid col 1" ]
-                        div [ Style [ CSSProp.Custom("background", "#1E1E21"); CSSProp.Custom("border", "1px solid #2A2A2E"); CSSProp.Custom("border-radius", "6px"); Padding "0.625rem 0.875rem"; FontSize "0.8rem"; CSSProp.Custom("color", "#E8E8ED") ] ] [ str "Grid col 2" ]
-                        div [ Style [ CSSProp.Custom("background", "#1E1E21"); CSSProp.Custom("border", "1px solid #2A2A2E"); CSSProp.Custom("border-radius", "6px"); Padding "0.625rem 0.875rem"; FontSize "0.8rem"; CSSProp.Custom("color", "#E8E8ED") ] ] [ str "Grid col 3" ]
-                    ]
-                    // Spacer pushing buttons apart
-                    div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("background", "#1E1E21"); CSSProp.Custom("border-radius", "8px"); Padding "0.75rem"; CSSProp.Custom("align-items", "center") ] ] [
-                        wc "fui-button" [ "variant", "ghost";   "size", "sm" ] [ str "← Back" ]
-                        wc "fui-spacer" [] []
-                        wc "fui-button" [ "variant", "primary"; "size", "sm" ] [ str "Next →" ]
-                    ]
-                    // AspectRatio demos
-                    div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("gap", "1rem"); CSSProp.Custom("align-items", "flex-end") ] ] [
-                        div [ Style [ CSSProp.Custom("width", "180px"); CSSProp.Custom("flex-shrink", "0") ] ] [
-                            p [ Style [ Margin "0 0 0.35rem"; FontSize "0.7rem"; CSSProp.Custom("color", "#6E6E76") ] ] [ str "16 / 9" ]
-                            wc "fui-aspect-ratio" [ "ratio", "16/9" ] [
-                                div [ Style [ CSSProp.Custom("background", "#1E1E21"); CSSProp.Custom("width", "100%"); CSSProp.Custom("height", "100%"); Display DisplayOptions.Flex; CSSProp.Custom("align-items", "center"); CSSProp.Custom("justify-content", "center"); FontSize "0.75rem"; CSSProp.Custom("color", "#6E6E76") ] ] [ str "16 / 9" ]
-                            ]
+            div [ ClassName "component-preview" ] [
+                div [ ClassName "preview-header" ] [
+                    span [ ClassName "preview-tag" ] [ str "fui-badge · fui-tag · fui-avatar" ]
+                    span [ ClassName "preview-badge" ] [ str "Feedback / Data Display" ]
+                ]
+                div [ ClassName "preview-body" ] [
+                    div [ Style [ Display DisplayOptions.Flex; FlexDirection "column"; CSSProp.Custom("gap", "0.75rem") ] ] [
+                        div [ ClassName "preview-row" ] [
+                            wc "fui-badge" [] [ str "Neutral" ]
+                            wc "fui-badge" [ "variant", "success" ] [ str "Success" ]
+                            wc "fui-badge" [ "variant", "warning" ] [ str "Warning" ]
+                            wc "fui-badge" [ "variant", "danger"  ] [ str "Danger" ]
+                            wc "fui-badge" [ "variant", "accent"  ] [ str "Accent" ]
+                            wc "fui-badge" [ "variant", "success"; "dot", "" ] [ str "Online" ]
                         ]
-                        div [ Style [ CSSProp.Custom("width", "100px"); CSSProp.Custom("flex-shrink", "0") ] ] [
-                            p [ Style [ Margin "0 0 0.35rem"; FontSize "0.7rem"; CSSProp.Custom("color", "#6E6E76") ] ] [ str "1 / 1" ]
-                            wc "fui-aspect-ratio" [ "ratio", "1/1" ] [
-                                div [ Style [ CSSProp.Custom("background", "#1E1E21"); CSSProp.Custom("width", "100%"); CSSProp.Custom("height", "100%"); Display DisplayOptions.Flex; CSSProp.Custom("align-items", "center"); CSSProp.Custom("justify-content", "center"); FontSize "0.75rem"; CSSProp.Custom("color", "#6E6E76") ] ] [ str "1 / 1" ]
-                            ]
+                        div [ ClassName "preview-row" ] [
+                            wc "fui-tag" [] [ str "Default" ]
+                            wc "fui-tag" [ "variant", "success" ] [ str "Active" ]
+                            wc "fui-tag" [ "variant", "warning" ] [ str "Pending" ]
+                            wc "fui-tag" [ "variant", "danger"; "removable", "" ] [ str "Remove me" ]
+                            wc "fui-tag" [ "variant", "accent" ] [ str "Accent" ]
                         ]
-                        div [ Style [ CSSProp.Custom("width", "160px"); CSSProp.Custom("flex-shrink", "0") ] ] [
-                            p [ Style [ Margin "0 0 0.35rem"; FontSize "0.7rem"; CSSProp.Custom("color", "#6E6E76") ] ] [ str "2 / 1" ]
-                            wc "fui-aspect-ratio" [ "ratio", "2/1" ] [
-                                div [ Style [ CSSProp.Custom("background", "#1E1E21"); CSSProp.Custom("width", "100%"); CSSProp.Custom("height", "100%"); Display DisplayOptions.Flex; CSSProp.Custom("align-items", "center"); CSSProp.Custom("justify-content", "center"); FontSize "0.75rem"; CSSProp.Custom("color", "#6E6E76") ] ] [ str "2 / 1" ]
-                            ]
+                        div [ ClassName "preview-row" ] [
+                            wc "fui-avatar" [ "initials", "JD" ] []
+                            wc "fui-avatar" [ "initials", "AB"; "status", "online" ] []
+                            wc "fui-avatar" [ "initials", "XY"; "size", "lg"; "status", "busy" ] []
                         ]
                     ]
                 ]
             ]
-        ]
-
-        div [ ClassName "component-preview" ] [
-            div [ ClassName "preview-header" ] [
-                span [ ClassName "preview-tag" ] [ str "fui-modal · fui-drawer · fui-tooltip · fui-popover · fui-confirm-dialog" ]
-                span [ ClassName "preview-badge" ] [ str "Overlay" ]
-            ]
-            div [ ClassName "preview-body" ] [
-                div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("gap", "0.75rem"); CSSProp.Custom("flex-wrap", "wrap"); CSSProp.Custom("align-items", "flex-start") ] ] [
-                    wc "fui-modal" [ "trigger-label", "Open modal"; "title", "Example Modal"; "size", "sm" ] [
-                        p [ Style [ Margin "0"; CSSProp.Custom("color", "#A0A0A8") ] ] [ str "Modal body — slot content goes here." ]
-                        wc "fui-button" [ "slot", "footer"; "variant", "primary" ] [ str "Confirm" ]
-                        wc "fui-button" [ "slot", "footer"; "variant", "secondary" ] [ str "Cancel" ]
-                    ]
-                    wc "fui-drawer" [ "trigger-label", "Open drawer"; "title", "Settings"; "placement", "right" ] [
-                        p [ Style [ Margin "0"; CSSProp.Custom("color", "#A0A0A8") ] ] [ str "Drawer body content." ]
-                    ]
-                    wc "fui-tooltip" [ "content", "Hover me!"; "placement", "top" ] [
-                        wc "fui-button" [ "variant", "secondary" ] [ str "Hover for tip" ]
-                    ]
-                    wc "fui-popover" [ "trigger-label", "Filter"; "width", "200px" ] [
-                        p [ Style [ Margin "0 0 0.5rem"; FontSize "0.875rem"; CSSProp.Custom("color", "#A0A0A8") ] ] [ str "Popover content" ]
-                        wc "fui-button" [ "variant", "primary" ] [ str "Apply" ]
-                    ]
-                    wc "fui-confirm-dialog" [ "trigger-label", "Delete"; "title", "Delete item?"; "message", "This cannot be undone."; "confirm-label", "Delete"; "variant", "danger" ] []
+            div [ ClassName "component-preview" ] [
+                div [ ClassName "preview-header" ] [
+                    span [ ClassName "preview-tag" ] [ str "fui-stat · fui-alert · fui-callout" ]
+                    span [ ClassName "preview-badge" ] [ str "Data Display / Feedback" ]
                 ]
-            ]
-        ]
-
-        div [ ClassName "component-preview" ] [
-            div [ ClassName "preview-header" ] [
-                span [ ClassName "preview-tag" ] [ str "fui-badge · fui-spinner · fui-progress · fui-alert · fui-toast" ]
-                span [ ClassName "preview-badge" ] [ str "Feedback" ]
-            ]
-            div [ ClassName "preview-body" ] [
-                div [ Style [ Display DisplayOptions.Flex; FlexDirection "column"; CSSProp.Custom("gap", "1.25rem") ] ] [
-                    div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("gap", "0.5rem"); CSSProp.Custom("flex-wrap", "wrap"); CSSProp.Custom("align-items", "center") ] ] [
-                        wc "fui-badge" [] [ str "Neutral" ]
-                        wc "fui-badge" [ "variant", "success" ] [ str "Success" ]
-                        wc "fui-badge" [ "variant", "warning" ] [ str "Warning" ]
-                        wc "fui-badge" [ "variant", "danger"  ] [ str "Danger" ]
-                        wc "fui-badge" [ "variant", "info"    ] [ str "Info" ]
-                        wc "fui-badge" [ "variant", "accent"  ] [ str "Accent" ]
-                        wc "fui-badge" [ "variant", "success"; "dot", "" ] [ str "Online" ]
-                        wc "fui-badge" [ "variant", "danger";  "dot", "" ] [ str "Offline" ]
+                div [ ClassName "preview-body" ] [
+                    div [ Style [ Display DisplayOptions.Flex; FlexDirection "column"; CSSProp.Custom("gap", "1.25rem") ] ] [
+                        div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("gap", "1rem"); CSSProp.Custom("flex-wrap", "wrap") ] ] [
+                            wc "fui-stat" [ "label", "Revenue"; "value", "$48,200"; "change", "12.5%"; "trend", "up"; "description", "vs last month" ] []
+                            wc "fui-stat" [ "label", "Users";   "value", "8,412";   "change", "3.1%";  "trend", "down" ] []
+                            wc "fui-stat" [ "label", "Uptime";  "value", "99.9%" ] []
+                        ]
+                        wc "fui-alert" [ "variant", "info" ] [ str "Your session will expire in 10 minutes." ]
+                        wc "fui-callout" [ "variant", "info"; "title", "Getting started" ] [ str "Drop any fui-* component into your HTML and it works out of the box." ]
                     ]
-                    div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("gap", "1rem"); CSSProp.Custom("align-items", "center") ] ] [
-                        wc "fui-spinner" [ "size", "sm" ] []
-                        wc "fui-spinner" [] []
-                        wc "fui-spinner" [ "size", "lg" ] []
-                        wc "fui-spinner" [ "size", "xl"; "label", "Loading…" ] []
-                    ]
-                    div [ Style [ Display DisplayOptions.Flex; FlexDirection "column"; CSSProp.Custom("gap", "0.5rem") ] ] [
-                        wc "fui-progress" [ "label", "Upload";   "value", "65" ] []
-                        wc "fui-progress" [ "label", "Storage";  "value", "90"; "variant", "danger"  ] []
-                        wc "fui-progress" [ "label", "Loading…"; "indeterminate", "" ] []
-                    ]
-                    wc "fui-alert" [ "variant", "info" ] [ str "Your session will expire in 10 minutes." ]
-                    wc "fui-alert" [ "variant", "success"; "title", "Changes saved" ] [ str "Your profile has been updated." ]
-                    wc "fui-toast" [ "variant", "success"; "title", "Saved"; "message", "Your changes have been saved." ] []
-                ]
-            ]
-        ]
-
-        div [ ClassName "component-preview" ] [
-            div [ ClassName "preview-header" ] [
-                span [ ClassName "preview-tag" ] [ str "fui-card · fui-stat · fui-avatar · fui-tag · fui-callout · fui-code-block" ]
-                span [ ClassName "preview-badge" ] [ str "Data Display" ]
-            ]
-            div [ ClassName "preview-body" ] [
-                div [ Style [ Display DisplayOptions.Flex; FlexDirection "column"; CSSProp.Custom("gap", "1.25rem") ] ] [
-                    div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("gap", "1rem"); CSSProp.Custom("flex-wrap", "wrap") ] ] [
-                        wc "fui-stat" [ "label", "Revenue"; "value", "$48,200"; "change", "12.5%"; "trend", "up"; "description", "vs last month" ] []
-                        wc "fui-stat" [ "label", "Users";   "value", "8,412";   "change", "3.1%";  "trend", "down" ] []
-                        wc "fui-stat" [ "label", "Uptime";  "value", "99.9%" ] []
-                    ]
-                    div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("gap", "0.5rem"); CSSProp.Custom("align-items", "center"); CSSProp.Custom("flex-wrap", "wrap") ] ] [
-                        wc "fui-avatar" [ "initials", "JD" ] []
-                        wc "fui-avatar" [ "initials", "AB"; "status", "online" ] []
-                        wc "fui-avatar" [ "initials", "XY"; "size", "lg"; "status", "busy" ] []
-                        let agItems = """[{"src":"","initials":"JD"},{"src":"","initials":"AB"},{"src":"","initials":"MK"},{"src":"","initials":"RQ"},{"src":"","initials":"TW"}]"""
-                        wc "fui-avatar-group" [ "avatars", agItems ] []
-                    ]
-                    div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("gap", "0.5rem"); CSSProp.Custom("flex-wrap", "wrap"); CSSProp.Custom("align-items", "center") ] ] [
-                        wc "fui-tag" [] [ str "Default" ]
-                        wc "fui-tag" [ "variant", "success" ] [ str "Active" ]
-                        wc "fui-tag" [ "variant", "warning" ] [ str "Pending" ]
-                        wc "fui-tag" [ "variant", "danger"; "removable", "" ] [ str "Remove me" ]
-                        wc "fui-tag" [ "variant", "info"   ] [ str "Info" ]
-                        wc "fui-tag" [ "variant", "accent" ] [ str "Accent" ]
-                    ]
-                    wc "fui-callout" [ "variant", "info"; "title", "Getting started" ] [ str "Drop any fui-* component into your HTML and it works out of the box." ]
                 ]
             ]
         ]
@@ -2295,9 +2068,10 @@ let backendDemoPage (slug: string) (model: Model) (dispatch: Msg -> unit) =
 
 let view (model: Model) (dispatch: Msg -> unit) =
     div [ ClassName "shell" ] [
-        sidebar model
+        div [ ClassName (if model.SidebarOpen then "sidebar-overlay visible" else "sidebar-overlay"); OnClick (fun _ -> dispatch CloseSidebar) ] []
+        sidebar model dispatch
         div [ ClassName "shell-main" ] [
-            topbar model
+            topbar model dispatch
             main [ ClassName "page-content" ] [
                 div [ Key (string model.Page) ] (
                     match model.Page with
