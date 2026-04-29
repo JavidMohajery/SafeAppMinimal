@@ -39,6 +39,8 @@ type AuthFormState = {
     Token    : string
 }
 
+type WsStatus = WsIdle | WsConnecting | WsOpen | WsGone
+
 type Model = {
     Page           : Page
     Hash           : string
@@ -52,6 +54,9 @@ type Model = {
     RateLimitLog   : (int * string) list
     JobPolling     : bool
     JobLog         : (string * string) list   // (jobId, latestJson), newest first
+    WsStatus       : WsStatus
+    WsLog          : (string * string) list   // (kind, text): "sent"|"recv"|"info"|"error"
+    WsInput        : string
 }
 
 type Msg =
@@ -80,6 +85,15 @@ type Msg =
     | JobStarted    of int * string
     | JobPoll       of string
     | JobPolled     of string * int * string
+    | WsConnect
+    | WsDisconnect
+    | WsOpened
+    | WsClosed
+    | WsSend
+    | WsReceive     of string
+    | WsNetError    of string
+    | WsInputStr    of string
+    | WsLogClear
 
 let urlCatLabel (slug: string) =
     match slug with
@@ -115,7 +129,7 @@ let init () =
     let defaultCrud = { GetId = "1"; CreateTitle = ""; CreateCompleted = false; UpdateId = "1"; UpdateTitle = ""; UpdateCompleted = false; DeleteId = "1" }
     let defaultPag  = { Filter = ""; SortBy = "id"; SortDir = "asc"; PageSize = "5"; Page = 1 }
     let defaultAuth = { Username = "admin"; Password = "password123"; Token = "" }
-    { Page = parsePage hash; Hash = hash; ElmishCounter = counter; BackendResults = Map.empty; Theme = Dark; SidebarOpen = false; CrudForm = defaultCrud; PagForm = defaultPag; AuthForm = defaultAuth; RateLimitLog = []; JobPolling = false; JobLog = [] }, Cmd.none
+    { Page = parsePage hash; Hash = hash; ElmishCounter = counter; BackendResults = Map.empty; Theme = Dark; SidebarOpen = false; CrudForm = defaultCrud; PagForm = defaultPag; AuthForm = defaultAuth; RateLimitLog = []; JobPolling = false; JobLog = []; WsStatus = WsIdle; WsLog = []; WsInput = "" }, Cmd.none
 
 [<Fable.Core.Emit("fetch($0).then(r=>r.text().then(b=>({status:r.status,body:b})))")>]
 let private fetchGet (url: string) : Fable.Core.JS.Promise<{| status: int; body: string |}> = jsNative
@@ -146,6 +160,23 @@ let private fetchGetDelayed (url: string) (delayMs: int) : Fable.Core.JS.Promise
 
 [<Fable.Core.Emit("(function(s){try{return JSON.parse(s).id||''}catch(_){return ''}}($0))")>]
 let private extractJobId (json: string) : string = jsNative
+
+[<Fable.Core.Emit("$0.key")>]
+let private eventKey (e: Browser.Types.Event) : string = jsNative
+
+[<Fable.Core.Emit("new WebSocket($0)")>]
+let private newWs (url: string) : obj = jsNative
+
+[<Fable.Core.Emit("(function(ws,onOpen,onMsg,onClose,onErr){ws.onopen=onOpen;ws.onmessage=function(e){onMsg(e.data);};ws.onclose=onClose;ws.onerror=onErr;})($0,$1,$2,$3,$4)")>]
+let private attachWsHandlers (ws: obj) (onOpen: unit -> unit) (onMsg: string -> unit) (onClose: unit -> unit) (onErr: unit -> unit) : unit = jsNative
+
+[<Fable.Core.Emit("$0.send($1)")>]
+let private wsSend (ws: obj) (msg: string) : unit = jsNative
+
+[<Fable.Core.Emit("$0.close(1000)")>]
+let private wsClose (ws: obj) : unit = jsNative
+
+let mutable private wsConn : obj option = None
 
 let update msg model =
     match msg with
@@ -299,6 +330,49 @@ let update msg model =
         if body.Contains("\"queued\"") || body.Contains("\"running\"") then
             m1, Cmd.ofMsg (JobPoll id)
         else m1, Cmd.none
+    | WsConnect ->
+        let proto = if window.location.protocol = "https:" then "wss:" else "ws:"
+        let url   = $"{proto}//{window.location.host}/api/demo/ws/echo"
+        let ws    = newWs url
+        wsConn <- Some ws
+        let log = ("info", $"Connecting to {url}…") :: model.WsLog |> List.truncate 50
+        let cmd : Cmd<Msg> = [ fun dispatch ->
+            attachWsHandlers ws
+                (fun ()   -> dispatch WsOpened)
+                (fun data -> dispatch (WsReceive data))
+                (fun ()   -> dispatch WsClosed)
+                (fun ()   -> dispatch (WsNetError "Connection error")) ]
+        { model with WsStatus = WsConnecting; WsLog = log }, cmd
+    | WsDisconnect ->
+        wsConn |> Option.iter wsClose
+        wsConn <- None
+        let log = ("info", "Disconnected by client") :: model.WsLog |> List.truncate 50
+        { model with WsStatus = WsGone; WsLog = log }, Cmd.none
+    | WsOpened ->
+        let log = ("info", "Connected ✓") :: model.WsLog |> List.truncate 50
+        { model with WsStatus = WsOpen; WsLog = log }, Cmd.none
+    | WsClosed ->
+        wsConn <- None
+        let log = ("info", "Connection closed by server") :: model.WsLog |> List.truncate 50
+        { model with WsStatus = WsGone; WsLog = log }, Cmd.none
+    | WsSend ->
+        let msg = model.WsInput.Trim()
+        if msg <> "" then
+            wsConn |> Option.iter (fun ws -> wsSend ws msg)
+            let log = ("sent", msg) :: model.WsLog |> List.truncate 50
+            { model with WsLog = log; WsInput = "" }, Cmd.none
+        else model, Cmd.none
+    | WsReceive data ->
+        let log = ("recv", data) :: model.WsLog |> List.truncate 50
+        { model with WsLog = log }, Cmd.none
+    | WsNetError err ->
+        wsConn <- None
+        let log = ("error", err) :: model.WsLog |> List.truncate 50
+        { model with WsStatus = WsGone; WsLog = log }, Cmd.none
+    | WsInputStr v ->
+        { model with WsInput = v }, Cmd.none
+    | WsLogClear ->
+        { model with WsLog = [] }, Cmd.none
 
 // Elmish 4 subscription: hashchange listener.
 let hashSub (_model: Model) : Sub<Msg> =
@@ -442,6 +516,7 @@ let sidebar (model: Model) (dispatch: Msg -> unit) =
                 sidebarLink "JWT Auth"             "#/backend/jwt-auth"        model.Hash
                 sidebarLink "Rate Limiting"        "#/backend/rate-limiting"   model.Hash
                 sidebarLink "Background Jobs"      "#/backend/background-jobs" model.Hash
+                sidebarLink "WebSocket"            "#/backend/websocket"       model.Hash
             ]
             div [ ClassName "sidebar-group" ] [
                 div [ ClassName "sidebar-group-label" ] [ str "Examples" ]
@@ -2383,6 +2458,47 @@ let private backendDemos = [
     //   post   Route.jobsBase           Demos.BackgroundJob.start
     //   getf   "/api/demo/jobs/%s"      Demos.BackgroundJob.getStatus
     //   get    Route.jobsBase           Demos.BackgroundJob.getAll""" }
+
+    {
+        Slug        = "websocket"
+        Name        = "WebSocket Echo"
+        Description = "Full-duplex messaging over a persistent TCP connection. Connect, send any text — the server echoes it back with a counter, length, and timestamp. No polling required."
+        Method      = "WS"
+        Url         = "/api/demo/ws/echo"
+        SourceCode  =
+    """// Demos/WebSocketDemo.fs
+    let private echoLoop (ws: WebSocket) = task {
+        let buf = Array.zeroCreate<byte> 4096
+        let mutable count = 0
+        while ws.State = WebSocketState.Open do
+            let! result = ws.ReceiveAsync(ArraySegment(buf), CancellationToken.None)
+            match result.MessageType with
+            | WebSocketMessageType.Close ->
+                do! ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "bye", CancellationToken.None)
+            | WebSocketMessageType.Text ->
+                let text = Encoding.UTF8.GetString(buf, 0, result.Count)
+                count <- count + 1
+                let reply =
+                    sprintf "{\"echo\":\"%s\",\"count\":%d,\"length\":%d,\"timestamp\":\"%s\"}"
+                        text count text.Length (DateTime.UtcNow.ToString("o"))
+                let replyBytes = Encoding.UTF8.GetBytes(reply)
+                do! ws.SendAsync(ArraySegment(replyBytes), WebSocketMessageType.Text, true, CancellationToken.None)
+            | _ -> () }
+
+    // GET /api/demo/ws/echo  — clients must send a WebSocket upgrade request
+    let handler : HttpHandler = fun next ctx -> task {
+        if ctx.WebSockets.IsWebSocketRequest then
+            let! ws = ctx.WebSockets.AcceptWebSocketAsync()
+            do! echoLoop ws
+            return Some ctx
+        else
+            return! (setStatusCode 426 >=> setHttpHeader "Upgrade" "websocket"
+                     >=> text "WebSocket upgrade required") next ctx }
+
+    // In Server.fs application builder:
+    //   app_config (fun app -> app.UseWebSockets())
+    // In the router:
+    //   get Route.wsEcho Demos.WebSocketDemo.handler""" }
 ]
 
 let private crudApiPage (demo: BackendDemoMeta) (model: Model) (dispatch: Msg -> unit) =
@@ -3047,6 +3163,119 @@ let private backgroundJobPage (demo: BackendDemoMeta) (model: Model) (dispatch: 
         ]
     ]
 
+let private wsPage (demo: BackendDemoMeta) (model: Model) (dispatch: Msg -> unit) =
+    let labelStyle   = Style [ FontFamily "'JetBrains Mono',monospace"; FontSize "0.65rem"; FontWeight "700"; CSSProp.Custom("text-transform","uppercase"); CSSProp.Custom("letter-spacing","0.08em"); Color "#6E6E76"; MarginBottom "0.5rem" ]
+    let codePreStyle = Style [ Margin "0"; FontFamily "'JetBrains Mono',monospace"; FontSize "0.8rem"; Color "#E8E8ED"; LineHeight "1.7"; CSSProp.Custom("white-space","pre") ]
+    let cardStyle    = Style [ Background "#161618"; Border "1px solid #2A2A2E"; BorderRadius "10px"; Padding "1.25rem 1.5rem"; MarginBottom "1.25rem" ]
+    let inputStyle   = Style [ Background "#0D0D0F"; Border "1px solid #2A2A2E"; BorderRadius "6px"; Color "#E8E8ED"; FontFamily "'JetBrains Mono',monospace"; FontSize "0.875rem"; Padding "0.5rem 0.75rem"; Outline "none"; CSSProp.Custom("box-sizing","border-box"); CSSProp.Custom("flex","1") ]
+
+    let isOpen       = model.WsStatus = WsOpen
+    let isConnecting = model.WsStatus = WsConnecting
+
+    let statusBadge =
+        match model.WsStatus with
+        | WsIdle       -> wc "fui-badge" [] [ str "Idle" ]
+        | WsConnecting -> wc "fui-badge" [ "variant", "warning" ] [ str "Connecting…" ]
+        | WsOpen       -> wc "fui-badge" [ "variant", "success" ] [ str "Connected" ]
+        | WsGone       -> wc "fui-badge" [ "variant", "danger"  ] [ str "Closed" ]
+
+    let kindStyle kind =
+        match kind with
+        | "sent"  -> Style [ FontFamily "'JetBrains Mono',monospace"; FontSize "0.72rem"; Color "#A0C4FF"; FontWeight "700" ]
+        | "recv"  -> Style [ FontFamily "'JetBrains Mono',monospace"; FontSize "0.72rem"; Color "#A0E0A0"; FontWeight "700" ]
+        | "error" -> Style [ FontFamily "'JetBrains Mono',monospace"; FontSize "0.72rem"; Color "#FF9999"; FontWeight "700" ]
+        | _       -> Style [ FontFamily "'JetBrains Mono',monospace"; FontSize "0.72rem"; Color "#6E6E76"; FontWeight "700" ]
+
+    div [ ClassName "comp-page" ] [
+        div [ ClassName "comp-header" ] [
+            div [ ClassName "comp-header-row" ] [
+                h1 [ ClassName "comp-name" ] [ str demo.Name ]
+                wc "fui-badge" [ "variant", "accent" ] [ str "Backend" ]
+            ]
+            p [ Style [ FontFamily "'Sora',sans-serif"; Color "#6E6E76"; Margin "0" ] ] [ str demo.Description ]
+        ]
+
+        // ── Connection card ────────────────────────────────────────────────────
+        div [ cardStyle ] [
+            p [ labelStyle ] [ str "Connection" ]
+            div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("align-items","center"); CSSProp.Custom("gap","0.875rem"); CSSProp.Custom("flex-wrap","wrap") ] ] [
+                statusBadge
+                span [ Style [ FontFamily "'JetBrains Mono',monospace"; FontSize "0.75rem"; Color "#6E6E76" ] ] [
+                    str "ws://localhost/api/demo/ws/echo"
+                ]
+                if isOpen then
+                    domEl "fui-button" [
+                        HTMLAttr.Custom("variant", box "danger")
+                        HTMLAttr.Custom("size", box "sm")
+                        OnClick (fun _ -> dispatch WsDisconnect)
+                    ] [ str "Disconnect" ]
+                else
+                    domEl "fui-button" [
+                        HTMLAttr.Custom("variant", box "primary")
+                        HTMLAttr.Custom("size", box "sm")
+                        if isConnecting then HTMLAttr.Custom("disabled", box "")
+                        OnClick (fun _ -> dispatch WsConnect)
+                    ] [ str (if isConnecting then "Connecting…" else "Connect") ]
+            ]
+        ]
+
+        // ── Send card (only when connected) ────────────────────────────────────
+        div [ cardStyle ] [
+            p [ labelStyle ] [ str "Send Message" ]
+            div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("align-items","center"); CSSProp.Custom("gap","0.625rem") ] ] [
+                domEl "input" [
+                    HTMLAttr.Type "text"
+                    HTMLAttr.Placeholder (if isOpen then "Type a message and press Enter or Send…" else "Connect first")
+                    HTMLAttr.Value model.WsInput
+                    inputStyle
+                    HTMLAttr.Disabled (not isOpen)
+                    OnChange (fun e -> dispatch (WsInputStr (e.target :?> Browser.Types.HTMLInputElement).value))
+                    OnKeyDown (fun e ->
+                        if eventKey e = "Enter" then dispatch WsSend)
+                ] []
+                domEl "fui-button" [
+                    HTMLAttr.Custom("variant", box "primary")
+                    HTMLAttr.Custom("size", box "sm")
+                    if not isOpen || model.WsInput.Trim() = "" then HTMLAttr.Custom("disabled", box "")
+                    OnClick (fun _ -> dispatch WsSend)
+                ] [ str "Send" ]
+            ]
+        ]
+
+        // ── Message log ────────────────────────────────────────────────────────
+        div [ cardStyle ] [
+            div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("align-items","center"); CSSProp.Custom("justify-content","space-between"); MarginBottom "0.875rem" ] ] [
+                p [ labelStyle ] [ str $"Message Log ({model.WsLog.Length})" ]
+                if not model.WsLog.IsEmpty then
+                    domEl "fui-button" [
+                        HTMLAttr.Custom("variant", box "secondary")
+                        HTMLAttr.Custom("size", box "xs")
+                        OnClick (fun _ -> dispatch WsLogClear)
+                    ] [ str "Clear" ]
+            ]
+            if model.WsLog.IsEmpty then
+                wc "fui-empty-state"
+                    [ "title", "No messages yet"
+                      "description", "Connect and send a message to see the echo." ] []
+            else
+                div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("flex-direction","column"); CSSProp.Custom("gap","0.375rem"); MaxHeight "360px"; CSSProp.Custom("overflow-y","auto") ] ] [
+                    for (kind, text) in model.WsLog do
+                        yield div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("align-items","flex-start"); CSSProp.Custom("gap","0.625rem"); Padding "0.5rem 0.75rem"; Background "#0D0D0F"; BorderRadius "6px"; Border "1px solid #1E1E21" ] ] [
+                            span [ kindStyle kind ] [ str (kind.ToUpper()) ]
+                            pre [ Style [ Margin "0"; FontFamily "'JetBrains Mono',monospace"; FontSize "0.8rem"; Color "#E8E8ED"; CSSProp.Custom("white-space","pre-wrap"); CSSProp.Custom("word-break","break-all"); CSSProp.Custom("flex","1") ] ] [
+                                str text
+                            ]
+                        ]
+                ]
+        ]
+
+        // ── Source code ────────────────────────────────────────────────────────
+        div [] [
+            p [ labelStyle ] [ str "Server source (F#)" ]
+            wc "fui-code-block" [ "language", "fsharp"; "code", demo.SourceCode ] []
+        ]
+    ]
+
 let backendDemoPage (slug: string) (model: Model) (dispatch: Msg -> unit) =
     match backendDemos |> List.tryFind (fun d -> d.Slug = slug) with
     | None ->
@@ -3061,6 +3290,8 @@ let backendDemoPage (slug: string) (model: Model) (dispatch: Msg -> unit) =
         rateLimitPage demo model dispatch
     | Some demo when demo.Slug = "background-jobs" ->
         backgroundJobPage demo model dispatch
+    | Some demo when demo.Slug = "websocket" ->
+        wsPage demo model dispatch
     | Some demo ->
         let state   = model.BackendResults |> Map.tryFind slug |> Option.defaultValue Idle
         let loading = state = Fetching

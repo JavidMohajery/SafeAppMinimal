@@ -5,7 +5,10 @@
       "Bash(dotnet tool *)",
       "Bash(dotnet fable *)",
       "Bash(curl -s \"https://api.nuget.org/v3-flatcontainer/fable.elmish/index.json\")",
-      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('\\\\n'.join\\(d['versions'][-10:]\\)\\)\")"
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('\\\\n'.join\\(d['versions'][-10:]\\)\\)\")",
+      "Bash(dotnet build *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)"
     ]
   }
 }

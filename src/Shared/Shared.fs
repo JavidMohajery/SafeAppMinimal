@@ -27,3 +27,6 @@ module Route =
 
     // Background jobs
     let jobsBase = "/api/demo/jobs"
+
+    // WebSocket echo
+    let wsEcho = "/api/demo/ws/echo"

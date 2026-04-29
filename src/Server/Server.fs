@@ -3,6 +3,7 @@ module Server
 open Giraffe
 open Saturn
 open Shared
+open Microsoft.AspNetCore.Builder
 
 // ── Health check ──────────────────────────────────────────────────────────────
 
@@ -60,6 +61,9 @@ let webApp =
         get  Route.jobsBase      Demos.BackgroundJob.getAll
         post Route.jobsBase      Demos.BackgroundJob.start
 
+        // WebSocket echo
+        get Route.wsEcho Demos.WebSocketDemo.handler
+
         // CRUD item API
         get     Route.items        Demos.CrudApi.getAll
         get     Route.itemsPaged   Demos.CrudApi.getPage
@@ -75,6 +79,7 @@ let app =
         memory_cache
         use_static "public"
         use_gzip
+        app_config (fun app -> app.UseWebSockets())
     }
 
 run app
