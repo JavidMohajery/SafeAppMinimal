@@ -25,6 +25,14 @@ type CrudFormState = {
     DeleteId        : string
 }
 
+type PagFormState = {
+    Filter   : string
+    SortBy   : string
+    SortDir  : string
+    PageSize : string
+    Page     : int
+}
+
 type Model = {
     Page          : Page
     Hash          : string
@@ -33,6 +41,7 @@ type Model = {
     Theme         : Theme
     SidebarOpen   : bool
     CrudForm      : CrudFormState
+    PagForm       : PagFormState
 }
 
 type Msg =
@@ -47,6 +56,8 @@ type Msg =
     | CrudFormStr  of string * string
     | CrudFormBool of string * bool
     | CrudSend     of string * string * string * string
+    | PagFormStr   of string * string
+    | PagFetch     of int
 
 let urlCatLabel (slug: string) =
     match slug with
@@ -80,7 +91,8 @@ let init () =
     let counter, _ = Pages.CounterElmish.init ()
     let hash = window.location.hash
     let defaultCrud = { GetId = "1"; CreateTitle = ""; CreateCompleted = false; UpdateId = "1"; UpdateTitle = ""; UpdateCompleted = false; DeleteId = "1" }
-    { Page = parsePage hash; Hash = hash; ElmishCounter = counter; BackendResults = Map.empty; Theme = Dark; SidebarOpen = false; CrudForm = defaultCrud }, Cmd.none
+    let defaultPag  = { Filter = ""; SortBy = "id"; SortDir = "asc"; PageSize = "5"; Page = 1 }
+    { Page = parsePage hash; Hash = hash; ElmishCounter = counter; BackendResults = Map.empty; Theme = Dark; SidebarOpen = false; CrudForm = defaultCrud; PagForm = defaultPag }, Cmd.none
 
 [<Fable.Core.Emit("fetch($0).then(r=>r.text().then(b=>({status:r.status,body:b})))")>]
 let private fetchGet (url: string) : Fable.Core.JS.Promise<{| status: int; body: string |}> = jsNative
@@ -90,6 +102,12 @@ let private fetchJson (url: string) (method: string) (body: string) : Fable.Core
 
 [<Fable.Core.Emit("JSON.stringify({title:$0,completed:$1})")>]
 let private itemJson (title: string) (completed: bool) : string = jsNative
+
+[<Fable.Core.Emit("encodeURIComponent($0)")>]
+let private encodeQuery (s: string) : string = jsNative
+
+[<Fable.Core.Emit("(function(s){try{var o=JSON.parse(s);return{totalPages:o.totalPages||1,page:o.page||1,total:o.total||0}}catch(_){return{totalPages:1,page:1,total:0}}}($0))")>]
+let private parsePagMeta (json: string) : {| totalPages: int; page: int; total: int |} = jsNative
 
 let update msg model =
     match msg with
@@ -144,6 +162,25 @@ let update msg model =
                 (fun r -> BackendReceive(key, r.status, r.body))
                 (fun ex -> BackendError(key, ex.Message))
         { model with BackendResults = model.BackendResults |> Map.add key Fetching }, cmd
+    | PagFormStr(field, value) ->
+        let p = model.PagForm
+        let form =
+            match field with
+            | "filter"    -> { p with Filter = value; Page = 1 }
+            | "sort-by"   -> { p with SortBy = value; Page = 1 }
+            | "sort-dir"  -> { p with SortDir = value; Page = 1 }
+            | "page-size" -> { p with PageSize = value; Page = 1 }
+            | _           -> p
+        { model with PagForm = form }, Cmd.none
+    | PagFetch page ->
+        let p   = { model.PagForm with Page = page }
+        let url = $"/api/items/paged?page={page}&pageSize={p.PageSize}&filter={encodeQuery p.Filter}&sortBy={p.SortBy}&sortDir={p.SortDir}"
+        let cmd =
+            Cmd.OfPromise.either
+                fetchGet url
+                (fun r -> BackendReceive("pag-result", r.status, r.body))
+                (fun ex -> BackendError("pag-result", ex.Message))
+        { model with PagForm = p; BackendResults = model.BackendResults |> Map.add "pag-result" Fetching }, cmd
 
 // Elmish 4 subscription: hashchange listener.
 let hashSub (_model: Model) : Sub<Msg> =
@@ -280,9 +317,10 @@ let sidebar (model: Model) (dispatch: Msg -> unit) =
             ]
             div [ ClassName "sidebar-group" ] [
                 div [ ClassName "sidebar-group-label" ] [ str "Backend Patterns" ]
-                sidebarLink "Health Check"    "#/backend/health-check"    model.Hash
-                sidebarLink "CRUD API"        "#/backend/crud-api"        model.Hash
-                sidebarLink "Error Handling"  "#/backend/error-handling"  model.Hash
+                sidebarLink "Health Check"         "#/backend/health-check"    model.Hash
+                sidebarLink "CRUD API"             "#/backend/crud-api"        model.Hash
+                sidebarLink "Error Handling"       "#/backend/error-handling"  model.Hash
+                sidebarLink "Pagination & Filters" "#/backend/pagination-api"  model.Hash
             ]
             div [ ClassName "sidebar-group" ] [
                 div [ ClassName "sidebar-group-label" ] [ str "Examples" ]
@@ -2041,6 +2079,50 @@ let private backendDemos = [
     //   /api/demo/error/404
     //   /api/demo/error/422
     //   /api/demo/error/429""" }
+
+    {
+        Slug        = "pagination-api"
+        Name        = "Pagination & Filtering"
+        Description = "Slice any collection with page / pageSize query params. Filter by title substring, sort by any field in either direction — all server-side with zero client state leakage."
+        Method      = "GET"
+        Url         = "/api/items/paged"
+        SourceCode  =
+    """// GET /api/items/paged?page=1&pageSize=5&filter=&sortBy=id&sortDir=asc
+    let getPage : HttpHandler = fun next ctx ->
+        let q s = ctx.TryGetQueryStringValue s
+        let page     = q "page"     |> Option.bind tryInt |> Option.defaultValue 1
+        let pageSize = q "pageSize" |> Option.bind tryInt |> Option.defaultValue 10
+        let filter   = q "filter"   |> Option.defaultValue ""
+        let sortBy   = q "sortBy"   |> Option.defaultValue "id"
+        let sortDir  = q "sortDir"  |> Option.defaultValue "asc"
+
+        let filtered =
+            _data.Values
+            |> Seq.filter (fun i ->
+                filter = "" ||
+                i.Title.Contains(filter, StringComparison.OrdinalIgnoreCase))
+
+        let sorted =
+            match sortBy, sortDir with
+            | "title",     "asc"  -> filtered |> Seq.sortBy (_.Title)
+            | "title",     _      -> filtered |> Seq.sortByDescending (_.Title)
+            | "completed", "asc"  -> filtered |> Seq.sortBy (_.Completed)
+            | "completed", _      -> filtered |> Seq.sortByDescending (_.Completed)
+            | _,           "asc"  -> filtered |> Seq.sortBy (_.Id)
+            | _,           _      -> filtered |> Seq.sortByDescending (_.Id)
+
+        let total      = sorted |> Seq.length
+        let pg         = Math.Max(1, page)
+        let ps         = Math.Clamp(pageSize, 1, 50)
+        let totalPages = if total = 0 then 1 else (total + ps - 1) / ps
+        let items      = sorted |> Seq.skip ((pg - 1) * ps)
+                                |> Seq.truncate ps |> Seq.toArray
+
+        json {| items      = items
+                total      = total
+                page       = pg
+                pageSize   = ps
+                totalPages = totalPages |} next ctx""" }
 ]
 
 let private crudApiPage (demo: BackendDemoMeta) (model: Model) (dispatch: Msg -> unit) =
@@ -2238,12 +2320,174 @@ let private crudApiPage (demo: BackendDemoMeta) (model: Model) (dispatch: Msg ->
         ]
     ]
 
+let private pagApiPage (demo: BackendDemoMeta) (model: Model) (dispatch: Msg -> unit) =
+    let pag = model.PagForm
+    let state   = model.BackendResults |> Map.tryFind "pag-result" |> Option.defaultValue Idle
+    let loading = state = Fetching
+    let statusVariant code = if code >= 200 && code < 300 then "success" elif code >= 500 then "danger" elif code >= 400 then "warning" else "info"
+
+    let labelStyle   = Style [ FontFamily "'JetBrains Mono',monospace"; FontSize "0.65rem"; FontWeight "700"; CSSProp.Custom("text-transform","uppercase"); CSSProp.Custom("letter-spacing","0.08em"); Color "#6E6E76"; MarginBottom "0.5rem" ]
+    let codePreStyle = Style [ Margin "0"; FontFamily "'JetBrains Mono',monospace"; FontSize "0.8rem"; Color "#E8E8ED"; LineHeight "1.7"; CSSProp.Custom("white-space","pre") ]
+    let panelStyle   = Style [ Background "#0D0D0F"; Border "1px solid #2A2A2E"; BorderRadius "8px"; Padding "1.125rem 1.375rem"; CSSProp.Custom("overflow","auto") ]
+    let cardStyle    = Style [ Background "#161618"; Border "1px solid #2A2A2E"; BorderRadius "10px"; Padding "1.25rem 1.5rem"; MarginBottom "1.25rem" ]
+    let inputStyle   = Style [ Background "#0D0D0F"; Border "1px solid #2A2A2E"; BorderRadius "6px"; Color "#E8E8ED"; FontFamily "'JetBrains Mono',monospace"; FontSize "0.875rem"; Padding "0.5rem 0.75rem"; Outline "none"; CSSProp.Custom("box-sizing","border-box") ]
+    let fieldLbl     = Style [ Display DisplayOptions.Block; FontFamily "'JetBrains Mono',monospace"; FontSize "0.72rem"; Color "#6E6E76"; MarginBottom "0.35rem" ]
+
+    let selectStyle =
+        Style [ Background "#0D0D0F"; Border "1px solid #2A2A2E"; BorderRadius "6px"; Color "#E8E8ED"
+                FontFamily "'JetBrains Mono',monospace"; FontSize "0.8rem"; Padding "0.5rem 0.6rem"
+                Outline "none"; Cursor "pointer" ]
+
+    div [ ClassName "comp-page" ] [
+        div [ ClassName "comp-header" ] [
+            div [ ClassName "comp-header-row" ] [
+                h1 [ ClassName "comp-name" ] [ str demo.Name ]
+                wc "fui-badge" [ "variant", "accent" ] [ str "Backend" ]
+            ]
+            p [ Style [ FontFamily "'Sora',sans-serif"; Color "#6E6E76"; Margin "0" ] ] [ str demo.Description ]
+        ]
+
+        // ── Query controls ────────────────────────────────────────────────────
+        div [ cardStyle ] [
+            p [ labelStyle ] [ str "Query Parameters" ]
+            div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("gap","1rem"); CSSProp.Custom("flex-wrap","wrap"); CSSProp.Custom("align-items","flex-end") ] ] [
+                // Filter
+                div [] [
+                    label [ fieldLbl ] [ str "Filter (title contains)" ]
+                    domEl "input" [
+                        HTMLAttr.Type "text"; HTMLAttr.Placeholder "e.g. test"
+                        HTMLAttr.Value pag.Filter
+                        Style [ Background "#0D0D0F"; Border "1px solid #2A2A2E"; BorderRadius "6px"; Color "#E8E8ED"; FontFamily "'JetBrains Mono',monospace"; FontSize "0.875rem"; Padding "0.5rem 0.75rem"; Outline "none"; CSSProp.Custom("box-sizing","border-box"); CSSProp.Custom("min-width","180px") ]
+                        OnChange (fun e -> dispatch (PagFormStr("filter", (e.target :?> Browser.Types.HTMLInputElement).value)))
+                    ] []
+                ]
+                // Sort by
+                div [] [
+                    label [ fieldLbl ] [ str "Sort by" ]
+                    domEl "select" [
+                        selectStyle
+                        HTMLAttr.Value pag.SortBy
+                        OnChange (fun e -> dispatch (PagFormStr("sort-by", (e.target :?> Browser.Types.HTMLInputElement).value)))
+                    ] [
+                        domEl "option" [ HTMLAttr.Value "id"        ] [ str "ID" ]
+                        domEl "option" [ HTMLAttr.Value "title"     ] [ str "Title" ]
+                        domEl "option" [ HTMLAttr.Value "completed" ] [ str "Completed" ]
+                    ]
+                ]
+                // Sort direction
+                div [] [
+                    label [ fieldLbl ] [ str "Direction" ]
+                    domEl "select" [
+                        selectStyle
+                        HTMLAttr.Value pag.SortDir
+                        OnChange (fun e -> dispatch (PagFormStr("sort-dir", (e.target :?> Browser.Types.HTMLInputElement).value)))
+                    ] [
+                        domEl "option" [ HTMLAttr.Value "asc"  ] [ str "Ascending" ]
+                        domEl "option" [ HTMLAttr.Value "desc" ] [ str "Descending" ]
+                    ]
+                ]
+                // Page size
+                div [] [
+                    label [ fieldLbl ] [ str "Page size" ]
+                    domEl "select" [
+                        selectStyle
+                        HTMLAttr.Value pag.PageSize
+                        OnChange (fun e -> dispatch (PagFormStr("page-size", (e.target :?> Browser.Types.HTMLInputElement).value)))
+                    ] [
+                        domEl "option" [ HTMLAttr.Value "3"  ] [ str "3" ]
+                        domEl "option" [ HTMLAttr.Value "5"  ] [ str "5" ]
+                        domEl "option" [ HTMLAttr.Value "10" ] [ str "10" ]
+                    ]
+                ]
+                // Fetch button
+                domEl "fui-button" [
+                    HTMLAttr.Custom("variant", box "primary")
+                    HTMLAttr.Custom("size", box "sm")
+                    if loading then HTMLAttr.Custom("disabled", box "")
+                    OnClick (fun _ -> dispatch (PagFetch 1))
+                ] [ str (if loading then "Fetching…" else "Fetch Page 1") ]
+            ]
+        ]
+
+        // ── Results ───────────────────────────────────────────────────────────
+        div [ cardStyle ] [
+            p [ labelStyle ] [ str "Response" ]
+            match state with
+            | Idle ->
+                wc "fui-empty-state" [ "title", "No results yet"; "description", "Set your query params and press Fetch." ] []
+            | Fetching ->
+                div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("justify-content","center"); Padding "2rem" ] ] [
+                    wc "fui-spinner" [ "label", "Fetching…" ] []
+                ]
+            | Failed err ->
+                wc "fui-alert" [ "variant", "danger"; "title", "Network error" ] [ str err ]
+            | Done(status, body) ->
+                let meta = parsePagMeta body
+                div [] [
+                    // Meta row
+                    div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("align-items","center"); CSSProp.Custom("gap","0.75rem"); MarginBottom "0.875rem"; CSSProp.Custom("flex-wrap","wrap") ] ] [
+                        wc "fui-badge" [ "variant", statusVariant status ] [ str $"HTTP {status}" ]
+                        wc "fui-badge" [] [ str $"Total: {meta.total}" ]
+                        wc "fui-badge" [] [ str $"Page {meta.page} of {meta.totalPages}" ]
+                    ]
+                    // JSON body
+                    div [ panelStyle ] [
+                        pre [ codePreStyle ] [ str body ]
+                    ]
+                    // Pagination nav
+                    div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("align-items","center"); CSSProp.Custom("gap","0.5rem"); MarginTop "1rem"; CSSProp.Custom("flex-wrap","wrap") ] ] [
+                        domEl "fui-button" [
+                            HTMLAttr.Custom("variant", box "secondary")
+                            HTMLAttr.Custom("size", box "sm")
+                            if meta.page <= 1 then HTMLAttr.Custom("disabled", box "")
+                            OnClick (fun _ -> dispatch (PagFetch 1))
+                        ] [ str "« First" ]
+                        domEl "fui-button" [
+                            HTMLAttr.Custom("variant", box "secondary")
+                            HTMLAttr.Custom("size", box "sm")
+                            if meta.page <= 1 then HTMLAttr.Custom("disabled", box "")
+                            OnClick (fun _ -> dispatch (PagFetch (meta.page - 1)))
+                        ] [ str "‹ Prev" ]
+                        // Page number buttons — show up to 5 around current
+                        let lo = System.Math.Max(1, meta.page - 2)
+                        let hi = System.Math.Min(meta.totalPages, meta.page + 2)
+                        for pg in lo..hi do
+                            yield domEl "fui-button" [
+                                HTMLAttr.Custom("variant", box (if pg = meta.page then "primary" else "secondary"))
+                                HTMLAttr.Custom("size", box "sm")
+                                OnClick (fun _ -> dispatch (PagFetch pg))
+                            ] [ str (string pg) ]
+                        domEl "fui-button" [
+                            HTMLAttr.Custom("variant", box "secondary")
+                            HTMLAttr.Custom("size", box "sm")
+                            if meta.page >= meta.totalPages then HTMLAttr.Custom("disabled", box "")
+                            OnClick (fun _ -> dispatch (PagFetch (meta.page + 1)))
+                        ] [ str "Next ›" ]
+                        domEl "fui-button" [
+                            HTMLAttr.Custom("variant", box "secondary")
+                            HTMLAttr.Custom("size", box "sm")
+                            if meta.page >= meta.totalPages then HTMLAttr.Custom("disabled", box "")
+                            OnClick (fun _ -> dispatch (PagFetch meta.totalPages))
+                        ] [ str "Last »" ]
+                    ]
+                ]
+        ]
+
+        // ── Source code ───────────────────────────────────────────────────────
+        div [] [
+            p [ labelStyle ] [ str "Server source (F#)" ]
+            wc "fui-code-block" [ "language", "fsharp"; "code", demo.SourceCode ] []
+        ]
+    ]
+
 let backendDemoPage (slug: string) (model: Model) (dispatch: Msg -> unit) =
     match backendDemos |> List.tryFind (fun d -> d.Slug = slug) with
     | None ->
         div [ ClassName "comp-page" ] [ h1 [] [ str $"Demo not found: {slug}" ] ]
     | Some demo when demo.Slug = "crud-api" ->
         crudApiPage demo model dispatch
+    | Some demo when demo.Slug = "pagination-api" ->
+        pagApiPage demo model dispatch
     | Some demo ->
         let state   = model.BackendResults |> Map.tryFind slug |> Option.defaultValue Idle
         let loading = state = Fetching

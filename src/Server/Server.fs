@@ -50,6 +50,7 @@ let webApp =
 
         // CRUD item API
         get     Route.items        Demos.CrudApi.getAll
+        get     Route.itemsPaged   Demos.CrudApi.getPage
         post    Route.items        Demos.CrudApi.create
         getf    "/api/items/%i"    Demos.CrudApi.getById
         putf    "/api/items/%i"    Demos.CrudApi.update

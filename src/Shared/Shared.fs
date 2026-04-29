@@ -15,4 +15,5 @@ module Route =
     let err500 = "/api/demo/error/500"
 
     // CRUD items
-    let items = "/api/items"
+    let items      = "/api/items"
+    let itemsPaged = "/api/items/paged"
