@@ -2229,9 +2229,9 @@ let backendDemoPage (slug: string) (model: Model) (dispatch: Msg -> unit) =
     | Some demo ->
         let state   = model.BackendResults |> Map.tryFind slug |> Option.defaultValue Idle
         let loading = state = Fetching
-        let methodColor = match demo.Method with "GET" -> "#22C55E" | "POST" -> "#3B82F6" | "DELETE" -> "#EF4444" | _ -> "#F59E0B"
-        let statusColor code = if code >= 200 && code < 300 then "#22C55E" elif code >= 400 then "#EF4444" else "#F59E0B"
-        let labelStyle  = Style [ FontFamily "'JetBrains Mono',monospace"; FontSize "0.65rem"; FontWeight "700"; CSSProp.Custom("text-transform", "uppercase"); CSSProp.Custom("letter-spacing", "0.08em"); Color "#6E6E76"; MarginBottom "0.5rem" ]
+        let methodVariant = match demo.Method with "GET" -> "success" | "POST" -> "info" | "DELETE" -> "danger" | _ -> "warning"
+        let statusVariant code = if code >= 200 && code < 300 then "success" elif code >= 500 then "danger" elif code >= 400 then "warning" else "info"
+        let labelStyle   = Style [ FontFamily "'JetBrains Mono',monospace"; FontSize "0.65rem"; FontWeight "700"; CSSProp.Custom("text-transform", "uppercase"); CSSProp.Custom("letter-spacing", "0.08em"); Color "#6E6E76"; MarginBottom "0.5rem" ]
         let codePreStyle = Style [ Margin "0"; FontFamily "'JetBrains Mono',monospace"; FontSize "0.8rem"; Color "#E8E8ED"; LineHeight "1.7"; CSSProp.Custom("white-space", "pre") ]
         let panelStyle   = Style [ Background "#0D0D0F"; Border "1px solid #2A2A2E"; BorderRadius "8px"; Padding "1.125rem 1.375rem"; CSSProp.Custom("overflow", "auto") ]
 
@@ -2240,7 +2240,7 @@ let backendDemoPage (slug: string) (model: Model) (dispatch: Msg -> unit) =
             div [ ClassName "comp-header" ] [
                 div [ ClassName "comp-header-row" ] [
                     h1 [ ClassName "comp-name" ] [ str demo.Name ]
-                    span [ ClassName "comp-badge" ] [ str "Backend" ]
+                    wc "fui-badge" [ "variant", "accent" ] [ str "Backend" ]
                 ]
                 p [ Style [ FontFamily "'Sora',sans-serif"; Color "#6E6E76"; Margin "0" ] ] [ str demo.Description ]
             ]
@@ -2249,11 +2249,11 @@ let backendDemoPage (slug: string) (model: Model) (dispatch: Msg -> unit) =
             div [ Style [ Background "#161618"; Border "1px solid #2A2A2E"; BorderRadius "10px"; Padding "1.25rem 1.5rem"; MarginBottom "1.5rem" ] ] [
                 p [ labelStyle ] [ str "Endpoint" ]
                 div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("align-items", "center"); CSSProp.Custom("gap", "0.75rem"); CSSProp.Custom("flex-wrap", "wrap") ] ] [
-                    span [ Style [ Background methodColor; Color "#000"; FontFamily "'JetBrains Mono',monospace"; FontSize "0.75rem"; FontWeight "700"; Padding "0.25rem 0.625rem"; BorderRadius "4px" ] ] [ str demo.Method ]
+                    wc "fui-badge" [ "variant", methodVariant ] [ str demo.Method ]
                     code [ Style [ FontFamily "'JetBrains Mono',monospace"; FontSize "0.9rem"; Color "#E8E8ED"; CSSProp.Custom("flex", "1") ] ] [ str demo.Url ]
-                    button [
-                        Style [ Background (if loading then "#3A1E6E" else "#7C3AED"); Color "#fff"; Border "none"; BorderRadius "6px"; Padding "0.45rem 1.25rem"; FontFamily "'JetBrains Mono',monospace"; FontSize "0.875rem"; FontWeight "600"; Cursor "pointer"; CSSProp.Custom("transition", "background 0.15s") ]
-                        Disabled loading
+                    domEl "fui-button" [
+                        HTMLAttr.Custom("variant", box "primary")
+                        if loading then HTMLAttr.Custom("disabled", box "")
                         OnClick (fun _ -> dispatch (BackendFetch(demo.Slug, demo.Url)))
                     ] [ str (if loading then "Sending…" else "Send Request") ]
                 ]
@@ -2264,34 +2264,30 @@ let backendDemoPage (slug: string) (model: Model) (dispatch: Msg -> unit) =
                 p [ labelStyle ] [ str "Response" ]
                 match state with
                 | Idle ->
-                    div [ Style [ Background "#161618"; Border "1px solid #2A2A2E"; BorderRadius "8px"; Padding "2rem"; CSSProp.Custom("text-align", "center") ] ] [
-                        p [ Style [ Color "#6E6E76"; FontFamily "'Sora',sans-serif"; FontSize "0.875rem"; Margin "0" ] ] [ str "Press Send Request to call the endpoint." ]
-                    ]
+                    wc "fui-empty-state" [
+                        "title",       "No response yet"
+                        "description", "Press Send Request to call the live endpoint."
+                    ] []
                 | Fetching ->
-                    div [ Style [ Background "#161618"; Border "1px solid #2A2A2E"; BorderRadius "8px"; Padding "2rem"; CSSProp.Custom("text-align", "center") ] ] [
-                        wc "fui-spinner" [ "size", "sm" ] []
+                    div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("justify-content", "center"); Padding "2rem" ] ] [
+                        wc "fui-spinner" [ "label", "Sending request…" ] []
                     ]
                 | Done(status, body) ->
                     div [ panelStyle ] [
                         div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("align-items", "center"); CSSProp.Custom("gap", "0.75rem"); MarginBottom "0.875rem" ] ] [
-                            span [ Style [ FontFamily "'JetBrains Mono',monospace"; FontSize "0.8rem"; FontWeight "700"; Color (statusColor status) ] ] [ str $"HTTP {status}" ]
-                            span [ Style [ Color "#2A2A2E" ] ] [ str "·" ]
-                            span [ Style [ FontFamily "'Sora',sans-serif"; FontSize "0.8rem"; Color "#6E6E76" ] ] [ str "application/json" ]
+                            wc "fui-badge" [ "variant", statusVariant status ] [ str $"HTTP {status}" ]
+                            wc "fui-badge" [] [ str "application/json" ]
                         ]
                         pre [ codePreStyle ] [ str body ]
                     ]
                 | Failed err ->
-                    div [ Style [ Background "#1A0A0A"; Border "1px solid rgba(239,68,68,0.3)"; BorderRadius "8px"; Padding "1.125rem 1.375rem" ] ] [
-                        p [ Style [ FontFamily "'JetBrains Mono',monospace"; FontSize "0.8rem"; Color "#EF4444"; Margin "0" ] ] [ str $"Error: {err}" ]
-                    ]
+                    wc "fui-alert" [ "variant", "danger"; "title", "Network error" ] [ str err ]
             ]
 
             // Source code
             div [] [
                 p [ labelStyle ] [ str "Server source (F#)" ]
-                div [ panelStyle ] [
-                    pre [ codePreStyle ] [ str demo.SourceCode ]
-                ]
+                wc "fui-code-block" [ "language", "fsharp"; "code", demo.SourceCode ] []
             ]
         ]
 
