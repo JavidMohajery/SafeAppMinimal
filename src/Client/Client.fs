@@ -217,7 +217,9 @@ let sidebar (model: Model) =
             ]
             div [ ClassName "sidebar-group" ] [
                 div [ ClassName "sidebar-group-label" ] [ str "Backend Patterns" ]
-                sidebarLink "Health Check" "#/backend/health-check" model.Hash
+                sidebarLink "Health Check"    "#/backend/health-check"    model.Hash
+                sidebarLink "CRUD API"        "#/backend/crud-api"        model.Hash
+                sidebarLink "Error Handling"  "#/backend/error-handling"  model.Hash
             ]
             div [ ClassName "sidebar-group" ] [
                 div [ ClassName "sidebar-group-label" ] [ str "Examples" ]
@@ -2099,7 +2101,7 @@ type BackendDemoMeta = {
 }
 
 let private backendDemos = [
-    { 
+    {
         Slug        = "health-check"
         Name        = "Health Check"
         Description = "Returns application status, timestamp, and uptime. Used by load balancers and uptime monitors to verify the service is alive."
@@ -2119,8 +2121,105 @@ let private backendDemos = [
             |}
             json resp next ctx
 
-    // Registered in the router:
+    // Wired into the Saturn router:
     //   get Route.health healthHandler""" }
+
+    {
+        Slug        = "crud-api"
+        Name        = "CRUD API"
+        Description = "In-memory REST API demonstrating all four HTTP verbs. Try GET /api/items to list all records; use curl or any HTTP client to POST, PUT, and DELETE."
+        Method      = "GET"
+        Url         = "/api/items"
+        SourceCode  =
+    """// Demos/CrudApi.fs
+    [<CLIMutable>]
+    type Item = { Id: int; Title: string; Completed: bool }
+
+    [<CLIMutable>]
+    type ItemDto = { Title: string; Completed: bool }
+
+    let private _data = ConcurrentDictionary<int, Item>()
+    let mutable private _counter = 0
+    let private nextId () = Interlocked.Increment(&_counter)
+
+    // GET /api/items
+    let getAll : HttpHandler = fun next ctx ->
+        let items = _data.Values |> Seq.sortBy _.Id |> Seq.toArray
+        json items next ctx
+
+    // GET /api/items/:id
+    let getById (id: int) : HttpHandler = fun next ctx ->
+        match _data.TryGetValue id with
+        | true, item -> json item next ctx
+        | _ -> (setStatusCode 404 >=> json {| error = "Not found" |}) next ctx
+
+    // POST /api/items   body: { "title": "...", "completed": false }
+    let create : HttpHandler = fun next ctx -> task {
+        let! dto = ctx.BindJsonAsync<ItemDto>()
+        let item = { Id = nextId(); Title = dto.Title; Completed = dto.Completed }
+        _data.[item.Id] <- item
+        return! (setStatusCode 201 >=> json item) next ctx
+    }
+
+    // PUT /api/items/:id   body: { "title": "...", "completed": true }
+    let update (id: int) : HttpHandler = fun next ctx -> task {
+        let! dto = ctx.BindJsonAsync<ItemDto>()
+        if _data.ContainsKey id then
+            let item = { Id = id; Title = dto.Title; Completed = dto.Completed }
+            _data.[id] <- item
+            return! json item next ctx
+        else
+            return! (setStatusCode 404 >=> json {| error = "Not found" |}) next ctx
+    }
+
+    // DELETE /api/items/:id
+    let delete (id: int) : HttpHandler = fun next ctx ->
+        match _data.TryRemove id with
+        | true, _ -> setStatusCode 204 next ctx
+        | _ -> (setStatusCode 404 >=> json {| error = "Not found" |}) next ctx
+
+    // Wired into Saturn router in Server.fs:
+    //   get     Route.items    Demos.CrudApi.getAll
+    //   post    Route.items    Demos.CrudApi.create
+    //   getf    Route.itemById Demos.CrudApi.getById
+    //   putf    Route.itemById Demos.CrudApi.update
+    //   deletef Route.itemById Demos.CrudApi.delete""" }
+
+    {
+        Slug        = "error-handling"
+        Name        = "Error Handling"
+        Description = "Demonstrates Giraffe's idiomatic error response pattern — consistent JSON body with status, error, detail, timestamp, and path. GET /api/demo/error/500 returns a live 500 response."
+        Method      = "GET"
+        Url         = "/api/demo/error/500"
+        SourceCode  =
+    """// Server.fs — shared error handler
+    let private errDemo (code: int) (title: string) (detail: string) : HttpHandler =
+        fun next ctx ->
+            let body = {|
+                status    = code
+                error     = title
+                detail    = detail
+                timestamp = System.DateTime.UtcNow.ToString("o")
+                path      = ctx.Request.Path.Value
+            |}
+            (setStatusCode code >=> json body) next ctx
+
+    // Wired into the Saturn router — all HTTP status codes:
+    //   get Route.err400 (errDemo 400 "Bad Request"          "...")
+    //   get Route.err401 (errDemo 401 "Unauthorized"         "...")
+    //   get Route.err403 (errDemo 403 "Forbidden"            "...")
+    //   get Route.err404 (errDemo 404 "Not Found"            "...")
+    //   get Route.err422 (errDemo 422 "Unprocessable Entity" "...")
+    //   get Route.err429 (errDemo 429 "Too Many Requests"    "...")
+    //   get Route.err500 (errDemo 500 "Internal Server Error""...")
+
+    // Try the other codes:
+    //   /api/demo/error/400
+    //   /api/demo/error/401
+    //   /api/demo/error/403
+    //   /api/demo/error/404
+    //   /api/demo/error/422
+    //   /api/demo/error/429""" }
 ]
 
 let backendDemoPage (slug: string) (model: Model) (dispatch: Msg -> unit) =
