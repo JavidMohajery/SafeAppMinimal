@@ -21,3 +21,6 @@ module Route =
     // JWT auth
     let authLogin = "/api/demo/auth/login"
     let authMe    = "/api/demo/auth/me"
+
+    // Rate limiting
+    let rateLimit = "/api/demo/ratelimit/ping"

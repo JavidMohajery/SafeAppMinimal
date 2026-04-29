@@ -52,6 +52,9 @@ let webApp =
         post Route.authLogin Demos.AuthDemo.login
         get  Route.authMe    Demos.AuthDemo.whoami
 
+        // Rate limiting
+        get Route.rateLimit Demos.RateLimit.ping
+
         // CRUD item API
         get     Route.items        Demos.CrudApi.getAll
         get     Route.itemsPaged   Demos.CrudApi.getPage

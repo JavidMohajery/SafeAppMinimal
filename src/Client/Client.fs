@@ -40,15 +40,16 @@ type AuthFormState = {
 }
 
 type Model = {
-    Page          : Page
-    Hash          : string
-    ElmishCounter : Pages.CounterElmish.Model
-    BackendResults: Map<string, FetchState>
-    Theme         : Theme
-    SidebarOpen   : bool
-    CrudForm      : CrudFormState
-    PagForm       : PagFormState
-    AuthForm      : AuthFormState
+    Page           : Page
+    Hash           : string
+    ElmishCounter  : Pages.CounterElmish.Model
+    BackendResults : Map<string, FetchState>
+    Theme          : Theme
+    SidebarOpen    : bool
+    CrudForm       : CrudFormState
+    PagForm        : PagFormState
+    AuthForm       : AuthFormState
+    RateLimitLog   : (int * string) list
 }
 
 type Msg =
@@ -69,6 +70,10 @@ type Msg =
     | AuthLogin
     | AuthReceive  of string * int * string
     | AuthCallMe
+    | RateLimitFire
+    | RateLimitHammer
+    | RateLimitReceive of int * string
+    | RateLimitClear
 
 let urlCatLabel (slug: string) =
     match slug with
@@ -104,7 +109,7 @@ let init () =
     let defaultCrud = { GetId = "1"; CreateTitle = ""; CreateCompleted = false; UpdateId = "1"; UpdateTitle = ""; UpdateCompleted = false; DeleteId = "1" }
     let defaultPag  = { Filter = ""; SortBy = "id"; SortDir = "asc"; PageSize = "5"; Page = 1 }
     let defaultAuth = { Username = "admin"; Password = "password123"; Token = "" }
-    { Page = parsePage hash; Hash = hash; ElmishCounter = counter; BackendResults = Map.empty; Theme = Dark; SidebarOpen = false; CrudForm = defaultCrud; PagForm = defaultPag; AuthForm = defaultAuth }, Cmd.none
+    { Page = parsePage hash; Hash = hash; ElmishCounter = counter; BackendResults = Map.empty; Theme = Dark; SidebarOpen = false; CrudForm = defaultCrud; PagForm = defaultPag; AuthForm = defaultAuth; RateLimitLog = [] }, Cmd.none
 
 [<Fable.Core.Emit("fetch($0).then(r=>r.text().then(b=>({status:r.status,body:b})))")>]
 let private fetchGet (url: string) : Fable.Core.JS.Promise<{| status: int; body: string |}> = jsNative
@@ -233,6 +238,25 @@ let update msg model =
                 (fun r -> BackendReceive("auth-me", r.status, r.body))
                 (fun ex -> BackendError("auth-me", ex.Message))
         { model with BackendResults = model.BackendResults |> Map.add "auth-me" Fetching }, cmd
+    | RateLimitFire ->
+        let cmd =
+            Cmd.OfPromise.either fetchGet "/api/demo/ratelimit/ping"
+                (fun r -> RateLimitReceive(r.status, r.body))
+                (fun ex -> RateLimitReceive(0, ex.Message))
+        model, cmd
+    | RateLimitHammer ->
+        let cmd =
+            List.init 10 (fun _ ->
+                Cmd.OfPromise.either fetchGet "/api/demo/ratelimit/ping"
+                    (fun r -> RateLimitReceive(r.status, r.body))
+                    (fun ex -> RateLimitReceive(0, ex.Message)))
+            |> Cmd.batch
+        model, cmd
+    | RateLimitReceive(status, body) ->
+        let log = (status, body) :: model.RateLimitLog |> List.truncate 20
+        { model with RateLimitLog = log }, Cmd.none
+    | RateLimitClear ->
+        { model with RateLimitLog = [] }, Cmd.none
 
 // Elmish 4 subscription: hashchange listener.
 let hashSub (_model: Model) : Sub<Msg> =
@@ -374,6 +398,7 @@ let sidebar (model: Model) (dispatch: Msg -> unit) =
                 sidebarLink "Error Handling"       "#/backend/error-handling"  model.Hash
                 sidebarLink "Pagination & Filters" "#/backend/pagination-api"  model.Hash
                 sidebarLink "JWT Auth"             "#/backend/jwt-auth"        model.Hash
+                sidebarLink "Rate Limiting"        "#/backend/rate-limiting"   model.Hash
             ]
             div [ ClassName "sidebar-group" ] [
                 div [ ClassName "sidebar-group-label" ] [ str "Examples" ]
@@ -2223,6 +2248,51 @@ let private backendDemos = [
             (setStatusCode 401 >=> json {| error = "Missing Authorization header" |}) next ctx
 
     // Demo users: admin / password123   or   user / letmein""" }
+
+    {
+        Slug        = "rate-limiting"
+        Name        = "Rate Limiting"
+        Description = "Fixed-window limiter: 5 requests per 10-second window. Excess requests get HTTP 429 with a Retry-After header. Hit \"Hammer\" to saturate the limit instantly."
+        Method      = "GET"
+        Url         = "/api/demo/ratelimit/ping"
+        SourceCode  =
+    """// Demos/RateLimit.fs — no extra NuGet packages; pure .NET BCL
+
+    type private Bucket(maxRequests: int, windowSeconds: int) =
+        let mutable count     = 0
+        let mutable windowEnd = DateTimeOffset.UtcNow.AddSeconds(float windowSeconds)
+
+        member self.TryConsume() =
+            lock self (fun () ->
+                let now = DateTimeOffset.UtcNow
+                if now >= windowEnd then
+                    count     <- 1
+                    windowEnd <- now.AddSeconds(float windowSeconds)
+                    true
+                elif count < maxRequests then
+                    count <- count + 1
+                    true
+                else false)
+
+        member self.RetryAfterSeconds() =
+            lock self (fun () ->
+                (windowEnd - DateTimeOffset.UtcNow).TotalSeconds |> max 0.0 |> int)
+
+    let private bucket = Bucket(5, 10)   // 5 req / 10-second window (global)
+
+    // GET /api/demo/ratelimit/ping
+    let ping : HttpHandler = fun next ctx ->
+        if bucket.TryConsume() then
+            json {| status = "ok"; timestamp = DateTime.UtcNow.ToString("o") |} next ctx
+        else
+            let retryAfter = bucket.RetryAfterSeconds()
+            (setStatusCode 429
+             >=> setHttpHeader "Retry-After" (string retryAfter)
+             >=> json {| error = "Too Many Requests"; retryAfter = retryAfter |})
+                next ctx
+
+    // Wired in Server.fs:
+    //   get Route.rateLimit Demos.RateLimit.ping""" }
 ]
 
 let private crudApiPage (demo: BackendDemoMeta) (model: Model) (dispatch: Msg -> unit) =
@@ -2693,6 +2763,88 @@ let private jwtAuthPage (demo: BackendDemoMeta) (model: Model) (dispatch: Msg ->
         ]
     ]
 
+let private rateLimitPage (demo: BackendDemoMeta) (model: Model) (dispatch: Msg -> unit) =
+    let log = model.RateLimitLog
+
+    let labelStyle   = Style [ FontFamily "'JetBrains Mono',monospace"; FontSize "0.65rem"; FontWeight "700"; CSSProp.Custom("text-transform","uppercase"); CSSProp.Custom("letter-spacing","0.08em"); Color "#6E6E76"; MarginBottom "0.5rem" ]
+    let codePreStyle = Style [ Margin "0"; FontFamily "'JetBrains Mono',monospace"; FontSize "0.8rem"; Color "#E8E8ED"; LineHeight "1.7"; CSSProp.Custom("white-space","pre") ]
+    let panelStyle   = Style [ Background "#0D0D0F"; Border "1px solid #2A2A2E"; BorderRadius "8px"; Padding "1.125rem 1.375rem"; CSSProp.Custom("overflow","auto") ]
+    let cardStyle    = Style [ Background "#161618"; Border "1px solid #2A2A2E"; BorderRadius "10px"; Padding "1.25rem 1.5rem"; MarginBottom "1.25rem" ]
+
+    div [ ClassName "comp-page" ] [
+        div [ ClassName "comp-header" ] [
+            div [ ClassName "comp-header-row" ] [
+                h1 [ ClassName "comp-name" ] [ str demo.Name ]
+                wc "fui-badge" [ "variant", "accent" ] [ str "Backend" ]
+            ]
+            p [ Style [ FontFamily "'Sora',sans-serif"; Color "#6E6E76"; Margin "0" ] ] [ str demo.Description ]
+        ]
+
+        // ── Policy card ────────────────────────────────────────────────────────
+        div [ cardStyle ] [
+            p [ labelStyle ] [ str "Active Policy" ]
+            div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("align-items","center"); CSSProp.Custom("gap","0.625rem"); CSSProp.Custom("flex-wrap","wrap") ] ] [
+                wc "fui-badge" [ "variant", "success" ] [ str "5 requests" ]
+                span [ Style [ Color "#6E6E76"; FontFamily "'JetBrains Mono',monospace"; FontSize "0.8rem" ] ] [ str "/" ]
+                wc "fui-badge" [] [ str "10-second window" ]
+                span [ Style [ Color "#6E6E76"; FontFamily "'JetBrains Mono',monospace"; FontSize "0.8rem" ] ] [ str "·" ]
+                wc "fui-badge" [ "variant", "warning" ] [ str "Fixed Window" ]
+                span [ Style [ Color "#6E6E76"; FontFamily "'JetBrains Mono',monospace"; FontSize "0.8rem" ] ] [ str "·" ]
+                wc "fui-badge" [] [ str "Global counter (shared across all visitors)" ]
+            ]
+        ]
+
+        // ── Controls card ──────────────────────────────────────────────────────
+        div [ cardStyle ] [
+            p [ labelStyle ] [ str "Fire Requests" ]
+            div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("align-items","center"); CSSProp.Custom("gap","0.75rem"); CSSProp.Custom("flex-wrap","wrap") ] ] [
+                domEl "fui-button" [
+                    HTMLAttr.Custom("variant", box "primary")
+                    HTMLAttr.Custom("size", box "sm")
+                    OnClick (fun _ -> dispatch RateLimitFire)
+                ] [ str "Fire One" ]
+                domEl "fui-button" [
+                    HTMLAttr.Custom("variant", box "danger")
+                    HTMLAttr.Custom("size", box "sm")
+                    OnClick (fun _ -> dispatch RateLimitHammer)
+                ] [ str "Hammer ×10" ]
+                if not log.IsEmpty then
+                    domEl "fui-button" [
+                        HTMLAttr.Custom("variant", box "secondary")
+                        HTMLAttr.Custom("size", box "sm")
+                        OnClick (fun _ -> dispatch RateLimitClear)
+                    ] [ str "Clear Log" ]
+            ]
+        ]
+
+        // ── Response log ───────────────────────────────────────────────────────
+        div [ cardStyle ] [
+            p [ labelStyle ] [ str $"Response Log ({log.Length} / 20)" ]
+            if log.IsEmpty then
+                wc "fui-empty-state"
+                    [ "title", "No requests yet"
+                      "description", "Press \"Fire One\" or \"Hammer ×10\" to start." ] []
+            else
+                div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("flex-direction","column"); CSSProp.Custom("gap","0.5rem") ] ] [
+                    for (status, body) in log do
+                        yield div [ panelStyle ] [
+                            div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("align-items","center"); CSSProp.Custom("gap","0.625rem"); MarginBottom "0.5rem" ] ] [
+                                wc "fui-badge" [ "variant", (if status = 200 then "success" elif status = 429 then "warning" else "danger") ] [
+                                    str (if status = 0 then "ERR" else $"HTTP {status}")
+                                ]
+                            ]
+                            pre [ codePreStyle ] [ str body ]
+                        ]
+                ]
+        ]
+
+        // ── Source code ────────────────────────────────────────────────────────
+        div [] [
+            p [ labelStyle ] [ str "Server source (F#)" ]
+            wc "fui-code-block" [ "language", "fsharp"; "code", demo.SourceCode ] []
+        ]
+    ]
+
 let backendDemoPage (slug: string) (model: Model) (dispatch: Msg -> unit) =
     match backendDemos |> List.tryFind (fun d -> d.Slug = slug) with
     | None ->
@@ -2703,6 +2855,8 @@ let backendDemoPage (slug: string) (model: Model) (dispatch: Msg -> unit) =
         pagApiPage demo model dispatch
     | Some demo when demo.Slug = "jwt-auth" ->
         jwtAuthPage demo model dispatch
+    | Some demo when demo.Slug = "rate-limiting" ->
+        rateLimitPage demo model dispatch
     | Some demo ->
         let state   = model.BackendResults |> Map.tryFind slug |> Option.defaultValue Idle
         let loading = state = Fetching
