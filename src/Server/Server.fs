@@ -55,6 +55,11 @@ let webApp =
         // Rate limiting
         get Route.rateLimit Demos.RateLimit.ping
 
+        // Background jobs
+        getf "/api/demo/jobs/%s" Demos.BackgroundJob.getStatus
+        get  Route.jobsBase      Demos.BackgroundJob.getAll
+        post Route.jobsBase      Demos.BackgroundJob.start
+
         // CRUD item API
         get     Route.items        Demos.CrudApi.getAll
         get     Route.itemsPaged   Demos.CrudApi.getPage

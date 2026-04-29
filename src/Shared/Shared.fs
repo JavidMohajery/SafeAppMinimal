@@ -24,3 +24,6 @@ module Route =
 
     // Rate limiting
     let rateLimit = "/api/demo/ratelimit/ping"
+
+    // Background jobs
+    let jobsBase = "/api/demo/jobs"

@@ -50,6 +50,8 @@ type Model = {
     PagForm        : PagFormState
     AuthForm       : AuthFormState
     RateLimitLog   : (int * string) list
+    JobPolling     : bool
+    JobLog         : (string * string) list   // (jobId, latestJson), newest first
 }
 
 type Msg =
@@ -74,6 +76,10 @@ type Msg =
     | RateLimitHammer
     | RateLimitReceive of int * string
     | RateLimitClear
+    | JobStart
+    | JobStarted    of int * string
+    | JobPoll       of string
+    | JobPolled     of string * int * string
 
 let urlCatLabel (slug: string) =
     match slug with
@@ -109,7 +115,7 @@ let init () =
     let defaultCrud = { GetId = "1"; CreateTitle = ""; CreateCompleted = false; UpdateId = "1"; UpdateTitle = ""; UpdateCompleted = false; DeleteId = "1" }
     let defaultPag  = { Filter = ""; SortBy = "id"; SortDir = "asc"; PageSize = "5"; Page = 1 }
     let defaultAuth = { Username = "admin"; Password = "password123"; Token = "" }
-    { Page = parsePage hash; Hash = hash; ElmishCounter = counter; BackendResults = Map.empty; Theme = Dark; SidebarOpen = false; CrudForm = defaultCrud; PagForm = defaultPag; AuthForm = defaultAuth; RateLimitLog = [] }, Cmd.none
+    { Page = parsePage hash; Hash = hash; ElmishCounter = counter; BackendResults = Map.empty; Theme = Dark; SidebarOpen = false; CrudForm = defaultCrud; PagForm = defaultPag; AuthForm = defaultAuth; RateLimitLog = []; JobPolling = false; JobLog = [] }, Cmd.none
 
 [<Fable.Core.Emit("fetch($0).then(r=>r.text().then(b=>({status:r.status,body:b})))")>]
 let private fetchGet (url: string) : Fable.Core.JS.Promise<{| status: int; body: string |}> = jsNative
@@ -134,6 +140,12 @@ let private loginJson (username: string) (password: string) : string = jsNative
 
 [<Fable.Core.Emit("(function(s){try{return JSON.parse(s).token||''}catch(_){return ''}}($0))")>]
 let private extractToken (json: string) : string = jsNative
+
+[<Fable.Core.Emit("new Promise(r=>setTimeout(r,$1)).then(()=>fetch($0).then(res=>res.text().then(b=>({status:res.status,body:b}))))")>]
+let private fetchGetDelayed (url: string) (delayMs: int) : Fable.Core.JS.Promise<{| status: int; body: string |}> = jsNative
+
+[<Fable.Core.Emit("(function(s){try{return JSON.parse(s).id||''}catch(_){return ''}}($0))")>]
+let private extractJobId (json: string) : string = jsNative
 
 let update msg model =
     match msg with
@@ -257,6 +269,36 @@ let update msg model =
         { model with RateLimitLog = log }, Cmd.none
     | RateLimitClear ->
         { model with RateLimitLog = [] }, Cmd.none
+    | JobStart ->
+        let cmd =
+            Cmd.OfPromise.either
+                (fun () -> fetchJson "/api/demo/jobs" "POST" "")
+                ()
+                (fun r -> JobStarted(r.status, r.body))
+                (fun ex -> BackendError("job-start", ex.Message))
+        { model with BackendResults = model.BackendResults |> Map.add "job-start" Fetching }, cmd
+    | JobStarted(status, body) ->
+        let m1 = { model with BackendResults = model.BackendResults |> Map.add "job-start" (Done(status, body)) }
+        if status = 202 then
+            let id = extractJobId body
+            let m2 = { m1 with JobLog = (id, body) :: m1.JobLog |> List.truncate 8 }
+            m2, Cmd.ofMsg (JobPoll id)
+        else m1, Cmd.none
+    | JobPoll id ->
+        let cmd =
+            Cmd.OfPromise.either
+                (fun () -> fetchGetDelayed $"/api/demo/jobs/{id}" 1000)
+                ()
+                (fun r -> JobPolled(id, r.status, r.body))
+                (fun ex -> BackendError("job-poll", ex.Message))
+        { model with JobPolling = true }, cmd
+    | JobPolled(id, _, body) ->
+        let updatedLog =
+            model.JobLog |> List.map (fun (jid, jbody) -> if jid = id then (id, body) else (jid, jbody))
+        let m1 = { model with JobLog = updatedLog; JobPolling = false }
+        if body.Contains("\"queued\"") || body.Contains("\"running\"") then
+            m1, Cmd.ofMsg (JobPoll id)
+        else m1, Cmd.none
 
 // Elmish 4 subscription: hashchange listener.
 let hashSub (_model: Model) : Sub<Msg> =
@@ -399,6 +441,7 @@ let sidebar (model: Model) (dispatch: Msg -> unit) =
                 sidebarLink "Pagination & Filters" "#/backend/pagination-api"  model.Hash
                 sidebarLink "JWT Auth"             "#/backend/jwt-auth"        model.Hash
                 sidebarLink "Rate Limiting"        "#/backend/rate-limiting"   model.Hash
+                sidebarLink "Background Jobs"      "#/backend/background-jobs" model.Hash
             ]
             div [ ClassName "sidebar-group" ] [
                 div [ ClassName "sidebar-group-label" ] [ str "Examples" ]
@@ -2293,6 +2336,53 @@ let private backendDemos = [
 
     // Wired in Server.fs:
     //   get Route.rateLimit Demos.RateLimit.ping""" }
+
+    {
+        Slug        = "background-jobs"
+        Name        = "Background Jobs"
+        Description = "Fire-and-forget processing: POST to enqueue a job, then poll GET /api/demo/jobs/{id} for live status. The server runs 5 timed steps (~4 s total) and tracks progress in memory."
+        Method      = "POST"
+        Url         = "/api/demo/jobs"
+        SourceCode  =
+    """// Demos/BackgroundJob.fs
+    type private Job = {
+        Id              : string
+        mutable Status  : string   // queued | running | completed | failed
+        mutable Progress: int
+        mutable Result  : string
+        CreatedAt       : DateTime
+        mutable Done    : DateTime option }
+
+    let private jobs = ConcurrentDictionary<string, Job>()
+
+    let private runInBackground (id: string) =
+        Task.Run(fun () ->
+            Thread.Sleep(300)
+            jobs.[id].Status <- "running"
+            for step in 1..5 do
+                Thread.Sleep(800)
+                jobs.[id].Progress <- step * 20
+            jobs.[id].Status <- "completed"
+            jobs.[id].Result <- "Processed 5 steps"
+            jobs.[id].Done   <- Some DateTime.UtcNow) |> ignore
+
+    // POST /api/demo/jobs  — enqueue a job, returns 202 + { id }
+    let start : HttpHandler = fun next ctx -> task {
+        let id = Guid.NewGuid().ToString("N").[..7]
+        jobs.[id] <- { Id=id; Status="queued"; Progress=0; Result=""; CreatedAt=DateTime.UtcNow; Done=None }
+        runInBackground id
+        return! (setStatusCode 202 >=> json {| id=id; status="queued" |}) next ctx }
+
+    // GET /api/demo/jobs/{id}  — poll for status
+    let getStatus (id: string) : HttpHandler = fun next ctx ->
+        match jobs.TryGetValue(id) with
+        | true, job -> json (toDto job) next ctx
+        | _ -> (setStatusCode 404 >=> json {| error="Not found" |}) next ctx
+
+    // Wired in Server.fs:
+    //   post   Route.jobsBase           Demos.BackgroundJob.start
+    //   getf   "/api/demo/jobs/%s"      Demos.BackgroundJob.getStatus
+    //   get    Route.jobsBase           Demos.BackgroundJob.getAll""" }
 ]
 
 let private crudApiPage (demo: BackendDemoMeta) (model: Model) (dispatch: Msg -> unit) =
@@ -2845,6 +2935,118 @@ let private rateLimitPage (demo: BackendDemoMeta) (model: Model) (dispatch: Msg 
         ]
     ]
 
+let private backgroundJobPage (demo: BackendDemoMeta) (model: Model) (dispatch: Msg -> unit) =
+    let labelStyle   = Style [ FontFamily "'JetBrains Mono',monospace"; FontSize "0.65rem"; FontWeight "700"; CSSProp.Custom("text-transform","uppercase"); CSSProp.Custom("letter-spacing","0.08em"); Color "#6E6E76"; MarginBottom "0.5rem" ]
+    let codePreStyle = Style [ Margin "0"; FontFamily "'JetBrains Mono',monospace"; FontSize "0.8rem"; Color "#E8E8ED"; LineHeight "1.7"; CSSProp.Custom("white-space","pre") ]
+    let panelStyle   = Style [ Background "#0D0D0F"; Border "1px solid #2A2A2E"; BorderRadius "8px"; Padding "1.125rem 1.375rem"; CSSProp.Custom("overflow","auto") ]
+    let cardStyle    = Style [ Background "#161618"; Border "1px solid #2A2A2E"; BorderRadius "10px"; Padding "1.25rem 1.5rem"; MarginBottom "1.25rem" ]
+
+    let statusVariant = function
+        | "completed" -> "success"
+        | "failed"    -> "danger"
+        | "running"   -> "info"
+        | _           -> "default"
+
+    let progressBar (pct: int) (status: string) =
+        let colour =
+            match status with
+            | "completed" -> "#30A46C"
+            | "failed"    -> "#E54D2E"
+            | _           -> "#0091FF"
+        div [ Style [ Height "6px"; Background "#2A2A2E"; BorderRadius "3px"; CSSProp.Custom("overflow","hidden"); MarginTop "0.5rem" ] ] [
+            div [ Style [ Height "100%"; Background colour; Width $"{pct}%%"; CSSProp.Custom("transition","width 0.6s ease") ] ] []
+        ]
+
+    let parseField (key: string) (json: string) =
+        let marker = $"\"{key}\":"
+        let idx = json.IndexOf(marker)
+        if idx < 0 then ""
+        else
+            let rest = json.[idx + marker.Length..].TrimStart()
+            if rest.StartsWith("\"") then
+                let inner = rest.[1..]
+                let endQ  = inner.IndexOf('"')
+                if endQ >= 0 then inner.[..endQ - 1] else ""
+            else
+                let endIdx = rest.IndexOfAny([|','; '}'; ']'|])
+                if endIdx >= 0 then rest.[..endIdx - 1] else rest
+
+    div [ ClassName "comp-page" ] [
+        div [ ClassName "comp-header" ] [
+            div [ ClassName "comp-header-row" ] [
+                h1 [ ClassName "comp-name" ] [ str demo.Name ]
+                wc "fui-badge" [ "variant", "accent" ] [ str "Backend" ]
+            ]
+            p [ Style [ FontFamily "'Sora',sans-serif"; Color "#6E6E76"; Margin "0" ] ] [ str demo.Description ]
+        ]
+
+        // ── Enqueue ────────────────────────────────────────────────────────────
+        div [ cardStyle ] [
+            p [ labelStyle ] [ str "POST /api/demo/jobs — enqueue a new job" ]
+            div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("align-items","center"); CSSProp.Custom("gap","0.75rem"); CSSProp.Custom("flex-wrap","wrap") ] ] [
+                domEl "fui-button" [
+                    HTMLAttr.Custom("variant", box "primary")
+                    HTMLAttr.Custom("size", box "sm")
+                    if model.BackendResults |> Map.tryFind "job-start" = Some Fetching then
+                        HTMLAttr.Custom("disabled", box "")
+                    OnClick (fun _ -> dispatch JobStart)
+                ] [ str "Start Job" ]
+                span [ Style [ FontFamily "'JetBrains Mono',monospace"; FontSize "0.75rem"; Color "#6E6E76" ] ] [
+                    str "Each job runs 5 steps over ~4 seconds"
+                ]
+            ]
+            match model.BackendResults |> Map.tryFind "job-start" with
+            | Some(Done(status, body)) ->
+                div [ Style [ MarginTop "0.875rem" ] ] [
+                    div [ Style [ MarginBottom "0.5rem" ] ] [
+                        wc "fui-badge" [ "variant", "success" ] [ str $"HTTP {status}" ]
+                    ]
+                    div [ panelStyle ] [ pre [ codePreStyle ] [ str body ] ]
+                ]
+            | Some(Failed err) ->
+                div [ Style [ MarginTop "0.875rem" ] ] [
+                    wc "fui-alert" [ "variant", "danger"; "title", "Error" ] [ str err ]
+                ]
+            | _ -> ()
+        ]
+
+        // ── Job queue ──────────────────────────────────────────────────────────
+        div [ cardStyle ] [
+            div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("align-items","center"); CSSProp.Custom("justify-content","space-between"); MarginBottom "0.875rem" ] ] [
+                p [ labelStyle ] [ str $"Job Queue ({model.JobLog.Length})" ]
+                if model.JobPolling then
+                    wc "fui-spinner" [ "size", "tiny"; "label", "Polling…" ] []
+            ]
+            if model.JobLog.IsEmpty then
+                wc "fui-empty-state"
+                    [ "title", "No jobs yet"
+                      "description", "Press \"Start Job\" to enqueue one." ] []
+            else
+                div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("flex-direction","column"); CSSProp.Custom("gap","0.75rem") ] ] [
+                    for (jobId, json) in model.JobLog do
+                        let status   = parseField "status"   json
+                        let progress = parseField "progress" json |> (fun s -> match System.Int32.TryParse s with true, v -> v | _ -> 0)
+                        let result   = parseField "result"   json
+                        yield div [ panelStyle ] [
+                            div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("align-items","center"); CSSProp.Custom("gap","0.625rem"); CSSProp.Custom("flex-wrap","wrap") ] ] [
+                                span [ Style [ FontFamily "'JetBrains Mono',monospace"; FontSize "0.75rem"; Color "#9D9DAA" ] ] [ str $"#{jobId}" ]
+                                wc "fui-badge" [ "variant", statusVariant status ] [ str status ]
+                                span [ Style [ FontFamily "'JetBrains Mono',monospace"; FontSize "0.72rem"; Color "#6E6E76" ] ] [ str $"{progress}%%" ]
+                            ]
+                            progressBar progress status
+                            if result <> "" then
+                                p [ Style [ FontFamily "'JetBrains Mono',monospace"; FontSize "0.75rem"; Color "#A0E0A0"; MarginTop "0.5rem"; Margin "0.5rem 0 0" ] ] [ str result ]
+                        ]
+                ]
+        ]
+
+        // ── Source code ────────────────────────────────────────────────────────
+        div [] [
+            p [ labelStyle ] [ str "Server source (F#)" ]
+            wc "fui-code-block" [ "language", "fsharp"; "code", demo.SourceCode ] []
+        ]
+    ]
+
 let backendDemoPage (slug: string) (model: Model) (dispatch: Msg -> unit) =
     match backendDemos |> List.tryFind (fun d -> d.Slug = slug) with
     | None ->
@@ -2857,6 +3059,8 @@ let backendDemoPage (slug: string) (model: Model) (dispatch: Msg -> unit) =
         jwtAuthPage demo model dispatch
     | Some demo when demo.Slug = "rate-limiting" ->
         rateLimitPage demo model dispatch
+    | Some demo when demo.Slug = "background-jobs" ->
+        backgroundJobPage demo model dispatch
     | Some demo ->
         let state   = model.BackendResults |> Map.tryFind slug |> Option.defaultValue Idle
         let loading = state = Fetching
