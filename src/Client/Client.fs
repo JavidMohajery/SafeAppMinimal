@@ -189,8 +189,16 @@ let private wsClose (ws: obj) : unit = jsNative
 
 let mutable private wsConn : obj option = None
 
-[<Fable.Core.Emit("($0.target.files&&$0.target.files.length>0)?$0.target.files[0]:null")>]
-let private changeEventFile (e: Browser.Types.Event) : obj = jsNative
+[<Fable.Core.Emit("(function(el){var s=el&&el.shadowRoot;if(!s)return null;var i=s.querySelector('input[type=\"file\"]');return(i&&i.files&&i.files.length>0)?i.files[0]:null})($0)")>]
+let private fuiFileUploadGetFile (el: obj) : obj = jsNative
+
+[<Fable.Core.Emit("(function(el,fn){if(el&&!el._fcb){el._fcb=true;el.addEventListener('fui-change',function(){fn();})}})($0,$1)")>]
+let private bindFuiFileChange (el: obj) (fn: unit -> unit) : unit = jsNative
+
+[<Fable.Core.Emit("(function(el){if(!el||!el.shadowRoot)return;var i=el.shadowRoot.querySelector('input[type=\"file\"]');if(i){i.value='';i.dispatchEvent(new Event('change'));}})($0)")>]
+let private fuiFileUploadReset (el: obj) : unit = jsNative
+
+let mutable private fuiUploadEl : obj option = None
 
 [<Fable.Core.Emit("$0?$0.name:''")>]
 let private fileName (f: obj) : string = jsNative
@@ -3446,28 +3454,25 @@ let private fileUploadPage (demo: BackendDemoMeta) (model: Model) (dispatch: Msg
 
         // ── File selector ──────────────────────────────────────────────────────
         div [ cardStyle ] [
-            p [ labelStyle ] [ str "Select File" ]
-            div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("align-items","center"); CSSProp.Custom("gap","0.875rem"); CSSProp.Custom("flex-wrap","wrap") ] ] [
-                domEl "input" [
-                    HTMLAttr.Type "file"
-                    Style [ Background "#0D0D0F"; Border "1px solid #2A2A2E"; BorderRadius "6px"; Color "#E8E8ED"; FontFamily "'JetBrains Mono',monospace"; FontSize "0.8rem"; Padding "0.5rem 0.75rem"; CSSProp.Custom("cursor","pointer") ]
-                    OnChange (fun e ->
-                        let f = changeEventFile e
-                        if isNull f then dispatch UploadClear
-                        else dispatch (UploadFileSelected f))
-                ] []
-                match model.UploadFile with
-                | Some f ->
-                    div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("align-items","center"); CSSProp.Custom("gap","0.5rem"); CSSProp.Custom("flex-wrap","wrap") ] ] [
-                        wc "fui-badge" [ "variant", "info" ] [ str (fileName f) ]
-                        wc "fui-badge" [] [ str (formatBytes (fileSize f)) ]
-                        wc "fui-badge" [] [ str (let t = fileType f in if t = "" then "unknown" else t) ]
-                    ]
-                | None ->
-                    span [ Style [ FontFamily "'JetBrains Mono',monospace"; FontSize "0.75rem"; Color "#6E6E76"; FontStyle "italic" ] ] [
-                        str "No file selected"
-                    ]
-            ]
+            domEl "fui-file-upload" [
+                HTMLAttr.Custom("label", box "Select File")
+                HTMLAttr.Custom("accept", box "*/*")
+                Ref (fun el ->
+                    if not (isNull el) then
+                        fuiUploadEl <- Some el
+                        bindFuiFileChange el (fun () ->
+                            let f = fuiFileUploadGetFile el
+                            if isNull f then dispatch UploadClear
+                            else dispatch (UploadFileSelected f)))
+            ] []
+            match model.UploadFile with
+            | Some f ->
+                div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("align-items","center"); CSSProp.Custom("gap","0.5rem"); CSSProp.Custom("flex-wrap","wrap"); MarginTop "0.75rem" ] ] [
+                    wc "fui-badge" [ "variant", "info" ] [ str (fileName f) ]
+                    wc "fui-badge" [] [ str (formatBytes (fileSize f)) ]
+                    wc "fui-badge" [] [ str (let t = fileType f in if t = "" then "unknown" else t) ]
+                ]
+            | None -> nothing
             div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("gap","0.625rem"); MarginTop "1rem" ] ] [
                 domEl "fui-button" [
                     HTMLAttr.Custom("variant", box "primary")
@@ -3479,7 +3484,9 @@ let private fileUploadPage (demo: BackendDemoMeta) (model: Model) (dispatch: Msg
                     domEl "fui-button" [
                         HTMLAttr.Custom("variant", box "secondary")
                         HTMLAttr.Custom("size", box "sm")
-                        OnClick (fun _ -> dispatch UploadClear)
+                        OnClick (fun _ ->
+                            fuiUploadEl |> Option.iter fuiFileUploadReset
+                            dispatch UploadClear)
                     ] [ str "Clear" ]
             ]
         ]
