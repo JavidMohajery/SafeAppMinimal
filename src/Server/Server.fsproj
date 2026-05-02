@@ -10,6 +10,8 @@
     <Compile Include="Demos/RateLimit.fs" />
     <Compile Include="Demos/BackgroundJob.fs" />
     <Compile Include="Demos/WebSocketDemo.fs" />
+    <Compile Include="Demos/FileUpload.fs" />
+    <Compile Include="Demos/SseDemo.fs" />
     <Compile Include="Server.fs" />
   </ItemGroup>
   <ItemGroup>

@@ -30,3 +30,9 @@ module Route =
 
     // WebSocket echo
     let wsEcho = "/api/demo/ws/echo"
+
+    // File upload
+    let fileUpload = "/api/demo/upload"
+
+    // Server-Sent Events
+    let sseStream = "/api/demo/sse/events"

@@ -64,6 +64,12 @@ let webApp =
         // WebSocket echo
         get Route.wsEcho Demos.WebSocketDemo.handler
 
+        // File upload
+        post Route.fileUpload Demos.FileUpload.upload
+
+        // Server-Sent Events
+        get Route.sseStream Demos.SseDemo.stream
+
         // CRUD item API
         get     Route.items        Demos.CrudApi.getAll
         get     Route.itemsPaged   Demos.CrudApi.getPage

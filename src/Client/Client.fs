@@ -57,6 +57,9 @@ type Model = {
     WsStatus       : WsStatus
     WsLog          : (string * string) list   // (kind, text): "sent"|"recv"|"info"|"error"
     WsInput        : string
+    UploadFile     : obj option               // selected File object (JS)
+    SseLog         : string list              // received event data strings, newest first
+    SseActive      : bool
 }
 
 type Msg =
@@ -94,6 +97,14 @@ type Msg =
     | WsNetError    of string
     | WsInputStr    of string
     | WsLogClear
+    | UploadFileSelected of obj
+    | UploadSend
+    | UploadClear
+    | SseConnect
+    | SseDisconnect
+    | SseReceive    of string
+    | SseDone
+    | SseLogClear
 
 let urlCatLabel (slug: string) =
     match slug with
@@ -129,7 +140,7 @@ let init () =
     let defaultCrud = { GetId = "1"; CreateTitle = ""; CreateCompleted = false; UpdateId = "1"; UpdateTitle = ""; UpdateCompleted = false; DeleteId = "1" }
     let defaultPag  = { Filter = ""; SortBy = "id"; SortDir = "asc"; PageSize = "5"; Page = 1 }
     let defaultAuth = { Username = "admin"; Password = "password123"; Token = "" }
-    { Page = parsePage hash; Hash = hash; ElmishCounter = counter; BackendResults = Map.empty; Theme = Dark; SidebarOpen = false; CrudForm = defaultCrud; PagForm = defaultPag; AuthForm = defaultAuth; RateLimitLog = []; JobPolling = false; JobLog = []; WsStatus = WsIdle; WsLog = []; WsInput = "" }, Cmd.none
+    { Page = parsePage hash; Hash = hash; ElmishCounter = counter; BackendResults = Map.empty; Theme = Dark; SidebarOpen = false; CrudForm = defaultCrud; PagForm = defaultPag; AuthForm = defaultAuth; RateLimitLog = []; JobPolling = false; JobLog = []; WsStatus = WsIdle; WsLog = []; WsInput = ""; UploadFile = None; SseLog = []; SseActive = false }, Cmd.none
 
 [<Fable.Core.Emit("fetch($0).then(r=>r.text().then(b=>({status:r.status,body:b})))")>]
 let private fetchGet (url: string) : Fable.Core.JS.Promise<{| status: int; body: string |}> = jsNative
@@ -177,6 +188,32 @@ let private wsSend (ws: obj) (msg: string) : unit = jsNative
 let private wsClose (ws: obj) : unit = jsNative
 
 let mutable private wsConn : obj option = None
+
+[<Fable.Core.Emit("($0.target.files&&$0.target.files.length>0)?$0.target.files[0]:null")>]
+let private changeEventFile (e: Browser.Types.Event) : obj = jsNative
+
+[<Fable.Core.Emit("$0?$0.name:''")>]
+let private fileName (f: obj) : string = jsNative
+
+[<Fable.Core.Emit("$0?$0.size:0")>]
+let private fileSize (f: obj) : int = jsNative
+
+[<Fable.Core.Emit("$0?($0.type||'application/octet-stream'):''")>]
+let private fileType (f: obj) : string = jsNative
+
+[<Fable.Core.Emit("(function(url,f){var fd=new FormData();fd.append('file',f);return fetch(url,{method:'POST',body:fd}).then(r=>r.text().then(b=>({status:r.status,body:b})));})($0,$1)")>]
+let private fetchUpload (url: string) (f: obj) : Fable.Core.JS.Promise<{| status: int; body: string |}> = jsNative
+
+[<Fable.Core.Emit("new EventSource($0)")>]
+let private newEventSource (url: string) : obj = jsNative
+
+[<Fable.Core.Emit("(function(es,onMsg,onDone){var done=false;es.onmessage=function(e){onMsg(e.data);};es.onerror=function(){if(!done){done=true;es.close();onDone();}};})($0,$1,$2)")>]
+let private attachSseHandlers (es: obj) (onMsg: string -> unit) (onDone: unit -> unit) : unit = jsNative
+
+[<Fable.Core.Emit("$0.close()")>]
+let private sseClose (es: obj) : unit = jsNative
+
+let mutable private sseConn : obj option = None
 
 let update msg model =
     match msg with
@@ -373,6 +410,41 @@ let update msg model =
         { model with WsInput = v }, Cmd.none
     | WsLogClear ->
         { model with WsLog = [] }, Cmd.none
+    | UploadFileSelected f ->
+        { model with UploadFile = Some f }, Cmd.none
+    | UploadSend ->
+        match model.UploadFile with
+        | None -> model, Cmd.none
+        | Some f ->
+            let cmd =
+                Cmd.OfPromise.either
+                    (fun () -> fetchUpload "/api/demo/upload" f)
+                    ()
+                    (fun r -> BackendReceive("file-upload", r.status, r.body))
+                    (fun ex -> BackendError("file-upload", ex.Message))
+            { model with BackendResults = model.BackendResults |> Map.add "file-upload" Fetching }, cmd
+    | UploadClear ->
+        { model with UploadFile = None
+                     BackendResults = model.BackendResults |> Map.remove "file-upload" }, Cmd.none
+    | SseConnect ->
+        let es  = newEventSource "/api/demo/sse/events"
+        sseConn <- Some es
+        let cmd : Cmd<Msg> = [ fun dispatch ->
+            attachSseHandlers es
+                (fun data -> dispatch (SseReceive data))
+                (fun ()   -> dispatch SseDone) ]
+        { model with SseActive = true; SseLog = [] }, cmd
+    | SseDisconnect ->
+        sseConn |> Option.iter sseClose
+        sseConn <- None
+        { model with SseActive = false }, Cmd.none
+    | SseReceive data ->
+        { model with SseLog = data :: model.SseLog |> List.truncate 50 }, Cmd.none
+    | SseDone ->
+        sseConn <- None
+        { model with SseActive = false }, Cmd.none
+    | SseLogClear ->
+        { model with SseLog = [] }, Cmd.none
 
 // Elmish 4 subscription: hashchange listener.
 let hashSub (_model: Model) : Sub<Msg> =
@@ -517,6 +589,8 @@ let sidebar (model: Model) (dispatch: Msg -> unit) =
                 sidebarLink "Rate Limiting"        "#/backend/rate-limiting"   model.Hash
                 sidebarLink "Background Jobs"      "#/backend/background-jobs" model.Hash
                 sidebarLink "WebSocket"            "#/backend/websocket"       model.Hash
+                sidebarLink "File Upload"          "#/backend/file-upload"     model.Hash
+                sidebarLink "Server-Sent Events"  "#/backend/sse"             model.Hash
             ]
             div [ ClassName "sidebar-group" ] [
                 div [ ClassName "sidebar-group-label" ] [ str "Examples" ]
@@ -2499,6 +2573,76 @@ let private backendDemos = [
     //   app_config (fun app -> app.UseWebSockets())
     // In the router:
     //   get Route.wsEcho Demos.WebSocketDemo.handler""" }
+
+    {
+        Slug        = "file-upload"
+        Name        = "File Upload"
+        Description = "Receive files as multipart/form-data. The server reads each file's stream, returns metadata (name, size, content-type) and a 128-byte preview — hex for binary, UTF-8 text for text files."
+        Method      = "POST"
+        Url         = "/api/demo/upload"
+        SourceCode  =
+    """// Demos/FileUpload.fs
+    let upload : HttpHandler = fun next ctx -> task {
+        if not ctx.Request.HasFormContentType then
+            return! (setStatusCode 400 >=> json {| error = "Expected multipart/form-data" |}) next ctx
+        else
+            let files = ctx.Request.Form.Files
+            if files.Count = 0 then
+                return! (setStatusCode 400 >=> json {| error = "No file in request" |}) next ctx
+            else
+                let results =
+                    [| for file in files do
+                        use stream     = file.OpenReadStream()
+                        let previewLen = int (min file.Length 128L)
+                        let buf        = Array.zeroCreate<byte> previewLen
+                        stream.Read(buf, 0, previewLen) |> ignore
+                        let isText = file.ContentType.StartsWith("text/", StringComparison.OrdinalIgnoreCase)
+                        yield {|
+                            name        = file.FileName
+                            size        = file.Length
+                            contentType = file.ContentType
+                            previewType = if isText then "text" else "hex"
+                            preview     =
+                                if isText then Encoding.UTF8.GetString(buf)
+                                else buf |> Array.map (sprintf "%02x") |> String.concat " "
+                        |} |]
+                return! (setStatusCode 200 >=> json results) next ctx }
+
+    // Wired in Server.fs:
+    //   post Route.fileUpload Demos.FileUpload.upload""" }
+
+    {
+        Slug        = "sse"
+        Name        = "Server-Sent Events"
+        Description = "One-way push stream over plain HTTP. The server sends 10 events (one per second) then closes the connection. The browser's EventSource API reconnects automatically — we close it on completion."
+        Method      = "GET"
+        Url         = "/api/demo/sse/events"
+        SourceCode  =
+    """// Demos/SseDemo.fs  — no special middleware required
+    let stream : HttpHandler = fun next ctx -> task {
+        ctx.Response.ContentType <- "text/event-stream; charset=utf-8"
+        ctx.Response.Headers.Append("Cache-Control", "no-cache")
+        ctx.Response.Headers.Append("X-Accel-Buffering", "no")
+
+        try
+            for i in 1..10 do
+                let payload =
+                    sprintf "{\"count\":%d,\"value\":%d,\"timestamp\":\"%s\"}"
+                        i (rng.Next(1, 100)) (DateTime.UtcNow.ToString("o"))
+                let bytes = Encoding.UTF8.GetBytes("data: " + payload + "\n\n")
+                do! ctx.Response.Body.WriteAsync(bytes, 0, bytes.Length)
+                do! ctx.Response.Body.FlushAsync()
+                if i < 10 then do! Task.Delay(1000)
+        with _ -> ()   // client disconnected mid-stream
+
+        return Some ctx }
+
+    // SSE wire format — each event is:
+    //   data: <json>\n\n
+    // Two newlines signal end of event to the browser.
+    //
+    // Wired in Server.fs:
+    //   get Route.sseStream Demos.SseDemo.stream""" }
 ]
 
 let private crudApiPage (demo: BackendDemoMeta) (model: Model) (dispatch: Msg -> unit) =
@@ -3276,6 +3420,180 @@ let private wsPage (demo: BackendDemoMeta) (model: Model) (dispatch: Msg -> unit
         ]
     ]
 
+let private fileUploadPage (demo: BackendDemoMeta) (model: Model) (dispatch: Msg -> unit) =
+    let labelStyle   = Style [ FontFamily "'JetBrains Mono',monospace"; FontSize "0.65rem"; FontWeight "700"; CSSProp.Custom("text-transform","uppercase"); CSSProp.Custom("letter-spacing","0.08em"); Color "#6E6E76"; MarginBottom "0.5rem" ]
+    let codePreStyle = Style [ Margin "0"; FontFamily "'JetBrains Mono',monospace"; FontSize "0.8rem"; Color "#E8E8ED"; LineHeight "1.7"; CSSProp.Custom("white-space","pre-wrap"); CSSProp.Custom("word-break","break-all") ]
+    let panelStyle   = Style [ Background "#0D0D0F"; Border "1px solid #2A2A2E"; BorderRadius "8px"; Padding "1.125rem 1.375rem"; CSSProp.Custom("overflow","auto") ]
+    let cardStyle    = Style [ Background "#161618"; Border "1px solid #2A2A2E"; BorderRadius "10px"; Padding "1.25rem 1.5rem"; MarginBottom "1.25rem" ]
+
+    let uploadState  = model.BackendResults |> Map.tryFind "file-upload" |> Option.defaultValue Idle
+    let uploading    = uploadState = Fetching
+    let statusVariant code = if code >= 200 && code < 300 then "success" elif code >= 400 then "danger" else "info"
+
+    let formatBytes n =
+        if n < 1024 then $"{n} B"
+        elif n < 1024 * 1024 then $"{n / 1024} KB"
+        else $"{n / 1024 / 1024} MB"
+
+    div [ ClassName "comp-page" ] [
+        div [ ClassName "comp-header" ] [
+            div [ ClassName "comp-header-row" ] [
+                h1 [ ClassName "comp-name" ] [ str demo.Name ]
+                wc "fui-badge" [ "variant", "accent" ] [ str "Backend" ]
+            ]
+            p [ Style [ FontFamily "'Sora',sans-serif"; Color "#6E6E76"; Margin "0" ] ] [ str demo.Description ]
+        ]
+
+        // ── File selector ──────────────────────────────────────────────────────
+        div [ cardStyle ] [
+            p [ labelStyle ] [ str "Select File" ]
+            div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("align-items","center"); CSSProp.Custom("gap","0.875rem"); CSSProp.Custom("flex-wrap","wrap") ] ] [
+                domEl "input" [
+                    HTMLAttr.Type "file"
+                    Style [ Background "#0D0D0F"; Border "1px solid #2A2A2E"; BorderRadius "6px"; Color "#E8E8ED"; FontFamily "'JetBrains Mono',monospace"; FontSize "0.8rem"; Padding "0.5rem 0.75rem"; CSSProp.Custom("cursor","pointer") ]
+                    OnChange (fun e ->
+                        let f = changeEventFile e
+                        if isNull f then dispatch UploadClear
+                        else dispatch (UploadFileSelected f))
+                ] []
+                match model.UploadFile with
+                | Some f ->
+                    div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("align-items","center"); CSSProp.Custom("gap","0.5rem"); CSSProp.Custom("flex-wrap","wrap") ] ] [
+                        wc "fui-badge" [ "variant", "info" ] [ str (fileName f) ]
+                        wc "fui-badge" [] [ str (formatBytes (fileSize f)) ]
+                        wc "fui-badge" [] [ str (let t = fileType f in if t = "" then "unknown" else t) ]
+                    ]
+                | None ->
+                    span [ Style [ FontFamily "'JetBrains Mono',monospace"; FontSize "0.75rem"; Color "#6E6E76"; FontStyle "italic" ] ] [
+                        str "No file selected"
+                    ]
+            ]
+            div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("gap","0.625rem"); MarginTop "1rem" ] ] [
+                domEl "fui-button" [
+                    HTMLAttr.Custom("variant", box "primary")
+                    HTMLAttr.Custom("size", box "sm")
+                    if model.UploadFile.IsNone || uploading then HTMLAttr.Custom("disabled", box "")
+                    OnClick (fun _ -> dispatch UploadSend)
+                ] [ str (if uploading then "Uploading…" else "Upload") ]
+                if model.UploadFile.IsSome || uploadState <> Idle then
+                    domEl "fui-button" [
+                        HTMLAttr.Custom("variant", box "secondary")
+                        HTMLAttr.Custom("size", box "sm")
+                        OnClick (fun _ -> dispatch UploadClear)
+                    ] [ str "Clear" ]
+            ]
+        ]
+
+        // ── Response ───────────────────────────────────────────────────────────
+        div [ cardStyle ] [
+            p [ labelStyle ] [ str "Server Response" ]
+            match uploadState with
+            | Idle ->
+                wc "fui-empty-state"
+                    [ "title", "No response yet"
+                      "description", "Select a file and press Upload." ] []
+            | Fetching ->
+                div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("justify-content","center"); Padding "1.5rem" ] ] [
+                    wc "fui-spinner" [ "label", "Uploading…" ] []
+                ]
+            | Failed err ->
+                wc "fui-alert" [ "variant", "danger"; "title", "Network error" ] [ str err ]
+            | Done(status, body) ->
+                div [] [
+                    div [ Style [ MarginBottom "0.75rem" ] ] [
+                        wc "fui-badge" [ "variant", statusVariant status ] [ str $"HTTP {status}" ]
+                    ]
+                    div [ panelStyle ] [ pre [ codePreStyle ] [ str body ] ]
+                ]
+        ]
+
+        // ── Source code ────────────────────────────────────────────────────────
+        div [] [
+            p [ labelStyle ] [ str "Server source (F#)" ]
+            wc "fui-code-block" [ "language", "fsharp"; "code", demo.SourceCode ] []
+        ]
+    ]
+
+let private ssePage (demo: BackendDemoMeta) (model: Model) (dispatch: Msg -> unit) =
+    let labelStyle   = Style [ FontFamily "'JetBrains Mono',monospace"; FontSize "0.65rem"; FontWeight "700"; CSSProp.Custom("text-transform","uppercase"); CSSProp.Custom("letter-spacing","0.08em"); Color "#6E6E76"; MarginBottom "0.5rem" ]
+    let codePreStyle = Style [ Margin "0"; FontFamily "'JetBrains Mono',monospace"; FontSize "0.8rem"; Color "#E8E8ED"; LineHeight "1.7"; CSSProp.Custom("white-space","pre-wrap"); CSSProp.Custom("word-break","break-all") ]
+    let cardStyle    = Style [ Background "#161618"; Border "1px solid #2A2A2E"; BorderRadius "10px"; Padding "1.25rem 1.5rem"; MarginBottom "1.25rem" ]
+    let rowStyle     = Style [ Background "#0D0D0F"; Border "1px solid #1E1E21"; BorderRadius "6px"; Padding "0.5rem 0.75rem"; Display DisplayOptions.Flex; CSSProp.Custom("align-items","flex-start"); CSSProp.Custom("gap","0.625rem") ]
+
+    let statusBadge =
+        if model.SseActive then
+            wc "fui-badge" [ "variant", "success" ] [ str "Streaming…" ]
+        elif model.SseLog.IsEmpty then
+            wc "fui-badge" [] [ str "Idle" ]
+        else
+            wc "fui-badge" [ "variant", "info" ] [ str "Complete" ]
+
+    div [ ClassName "comp-page" ] [
+        div [ ClassName "comp-header" ] [
+            div [ ClassName "comp-header-row" ] [
+                h1 [ ClassName "comp-name" ] [ str demo.Name ]
+                wc "fui-badge" [ "variant", "accent" ] [ str "Backend" ]
+            ]
+            p [ Style [ FontFamily "'Sora',sans-serif"; Color "#6E6E76"; Margin "0" ] ] [ str demo.Description ]
+        ]
+
+        // ── Connection card ────────────────────────────────────────────────────
+        div [ cardStyle ] [
+            p [ labelStyle ] [ str "Stream Control" ]
+            div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("align-items","center"); CSSProp.Custom("gap","0.875rem"); CSSProp.Custom("flex-wrap","wrap") ] ] [
+                statusBadge
+                if model.SseActive then
+                    domEl "fui-button" [
+                        HTMLAttr.Custom("variant", box "danger")
+                        HTMLAttr.Custom("size", box "sm")
+                        OnClick (fun _ -> dispatch SseDisconnect)
+                    ] [ str "Disconnect" ]
+                else
+                    domEl "fui-button" [
+                        HTMLAttr.Custom("variant", box "primary")
+                        HTMLAttr.Custom("size", box "sm")
+                        OnClick (fun _ -> dispatch SseConnect)
+                    ] [ str "Start Stream" ]
+                span [ Style [ FontFamily "'JetBrains Mono',monospace"; FontSize "0.75rem"; Color "#6E6E76" ] ] [
+                    str "10 events · 1 per second · ~10 s total"
+                ]
+            ]
+        ]
+
+        // ── Event log ──────────────────────────────────────────────────────────
+        div [ cardStyle ] [
+            div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("align-items","center"); CSSProp.Custom("justify-content","space-between"); MarginBottom "0.875rem" ] ] [
+                p [ labelStyle ] [ str $"Event Log ({model.SseLog.Length} / 10)" ]
+                if not model.SseLog.IsEmpty then
+                    domEl "fui-button" [
+                        HTMLAttr.Custom("variant", box "secondary")
+                        HTMLAttr.Custom("size", box "xs")
+                        OnClick (fun _ -> dispatch SseLogClear)
+                    ] [ str "Clear" ]
+            ]
+            if model.SseLog.IsEmpty then
+                wc "fui-empty-state"
+                    [ "title", "No events yet"
+                      "description", "Press \"Start Stream\" to open the EventSource connection." ] []
+            else
+                div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("flex-direction","column"); CSSProp.Custom("gap","0.375rem"); MaxHeight "400px"; CSSProp.Custom("overflow-y","auto") ] ] [
+                    for (i, data) in model.SseLog |> List.mapi (fun i d -> i, d) do
+                        yield div [ rowStyle ] [
+                            span [ Style [ FontFamily "'JetBrains Mono',monospace"; FontSize "0.7rem"; Color "#6E6E76"; CSSProp.Custom("white-space","nowrap"); PaddingTop "1px" ] ] [
+                                str $"#{model.SseLog.Length - i}"
+                            ]
+                            pre [ codePreStyle ] [ str data ]
+                        ]
+                ]
+        ]
+
+        // ── Source code ────────────────────────────────────────────────────────
+        div [] [
+            p [ labelStyle ] [ str "Server source (F#)" ]
+            wc "fui-code-block" [ "language", "fsharp"; "code", demo.SourceCode ] []
+        ]
+    ]
+
 let backendDemoPage (slug: string) (model: Model) (dispatch: Msg -> unit) =
     match backendDemos |> List.tryFind (fun d -> d.Slug = slug) with
     | None ->
@@ -3292,6 +3610,10 @@ let backendDemoPage (slug: string) (model: Model) (dispatch: Msg -> unit) =
         backgroundJobPage demo model dispatch
     | Some demo when demo.Slug = "websocket" ->
         wsPage demo model dispatch
+    | Some demo when demo.Slug = "file-upload" ->
+        fileUploadPage demo model dispatch
+    | Some demo when demo.Slug = "sse" ->
+        ssePage demo model dispatch
     | Some demo ->
         let state   = model.BackendResults |> Map.tryFind slug |> Option.defaultValue Idle
         let loading = state = Fetching
