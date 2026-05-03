@@ -12,6 +12,21 @@
     <Compile Include="Demos/WebSocketDemo.fs" />
     <Compile Include="Demos/FileUpload.fs" />
     <Compile Include="Demos/SseDemo.fs" />
+    <Compile Include="Demos/CachingDemo.fs" />
+    <Compile Include="Demos/ContentNegDemo.fs" />
+    <Compile Include="Demos/ValidationDemo.fs" />
+    <Compile Include="Demos/ApiKeyDemo.fs" />
+    <Compile Include="Demos/StreamingDemo.fs" />
+    <Compile Include="Demos/IdempotencyDemo.fs" />
+    <Compile Include="Demos/CorrelationDemo.fs" />
+    <Compile Include="Demos/OptimisticDemo.fs" />
+    <Compile Include="Demos/LongPollDemo.fs" />
+    <Compile Include="Demos/RetryDemo.fs" />
+    <Compile Include="Demos/PatchDemo.fs" />
+    <Compile Include="Demos/ApiVersionDemo.fs" />
+    <Compile Include="Demos/BulkDemo.fs" />
+    <Compile Include="Demos/SoftDeleteDemo.fs" />
+    <Compile Include="Demos/CircuitBreakerDemo.fs" />
     <Compile Include="Server.fs" />
   </ItemGroup>
   <ItemGroup>

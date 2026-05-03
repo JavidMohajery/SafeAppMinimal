@@ -39,6 +39,8 @@ type AuthFormState = {
     Token    : string
 }
 
+type ValFormState = { ValName: string; ValEmail: string; ValAge: string }
+
 type WsStatus = WsIdle | WsConnecting | WsOpen | WsGone
 
 type Model = {
@@ -60,6 +62,46 @@ type Model = {
     UploadFile     : obj option               // selected File object (JS)
     SseLog         : string list              // received event data strings, newest first
     SseActive      : bool
+    CacheEtag      : string                   // last ETag received from caching demo
+    ContentNegAccept : string                 // Accept header for content-neg demo
+    ContentNegCt   : string                   // Content-Type from last content-neg response
+    ValForm        : ValFormState
+    ApiKey         : string                   // current API key input value
+    StreamBuffer   : string                   // accumulated streaming text
+    StreamActive   : bool
+    IdempKey       : string                   // current idempotency key
+    IdempLog       : (int * bool * string) list  // (status, wasReplayed, body) newest first
+    CorrLog        : (string * string * string) list  // (reqId, respTime, body) newest first
+    OptEtag        : string                   // ETag from last optimistic fetch
+    OptFetchedBody : string                   // raw fetched doc JSON
+    OptEditContent : string
+    OptEditAuthor  : string
+    LPActive       : bool
+    LPEventId      : int
+    LPLog          : string list              // received events newest first
+    LPInput        : string
+    RetryActive    : bool
+    RetryLog       : string list              // attempt log newest first
+    RetrySession   : string
+    PatchName      : string
+    PatchEmail     : string
+    PatchBio       : string
+    PatchWebsite   : string
+    PatchBody      : string
+    VerV1Status    : int
+    VerV1Body      : string
+    VerV1Headers   : string
+    VerV2Status    : int
+    VerV2Body      : string
+    VerV2Headers   : string
+    BulkInput      : string
+    BulkBody       : string
+    BulkStatus     : int
+    SoftBody       : string
+    SoftShowDel    : bool
+    CBLog          : (int * string * string) list
+    CBFailRate     : string
+    CBActive       : bool
 }
 
 type Msg =
@@ -105,6 +147,75 @@ type Msg =
     | SseReceive    of string
     | SseDone
     | SseLogClear
+    | CacheFetch    of bool                   // true = send If-None-Match
+    | CacheMutate
+    | CacheReceived of int * string * string  // status * body * etag
+    | ContentNegSet of string
+    | ContentNegFetch
+    | ContentNegReceived of int * string * string  // status * body * content-type
+    | ValFormSet    of string * string        // field * value
+    | ValSubmit
+    | ApiKeySet     of string
+    | ApiKeyFetch
+    | StreamStart
+    | StreamChunk   of string
+    | StreamDone
+    | StreamClear
+    | IdempKeySet   of string
+    | IdempKeyGen
+    | IdempSubmit
+    | IdempReceived of int * bool * string   // status * replayed * body
+    | IdempLogClear
+    | CorrPing      of bool                  // true = client sends own ID, false = server generates
+    | CorrReceived  of string * string * string  // reqId * respTime * body
+    | CorrLogClear
+    | OptFetch
+    | OptFetched    of string * string       // etag * body
+    | OptSet        of string * string       // field * value
+    | OptUpdate
+    | OptForceConflict
+    | OptConflicted of int * string * string // status * etag * body
+    | LPStart
+    | LPStop
+    | LPReceived    of int * string          // status * body
+    | LPPublishSet  of string
+    | LPPublish
+    | LPLogClear
+    | RetryStart
+    | RetryStep     of string * int * int    // kind * attempt * delayMs
+    | RetryDone     of bool * int * string   // success * attempt * body
+    | RetryClear
+    | RetryNewSession
+    | PatchLoad
+    | PatchLoaded   of int * string
+    | PatchSet      of string * string       // field * value
+    | PatchSave
+    | PatchSaved    of int * string
+    | VerFetch      of string                // "v1" | "v2"
+    | VerReceived   of string * int * string * string   // ver * status * body * headers
+    | BulkSetInput  of string
+    | BulkImport
+    | BulkImported  of int * string
+    | SoftFetch
+    | SoftFetched   of string
+    | SoftDelete    of int
+    | SoftDeleted   of string
+    | SoftRestore   of int
+    | SoftRestored  of string
+    | SoftToggleDel
+    | CBCall
+    | CBCalled      of int * string
+    | CBReset
+    | CBResetDone   of int * string
+    | CBSetFailRate of string
+    | CBLogClear
+
+let private defaultBulkInput = """[
+  {"id":"item-1","name":"Widget Alpha","value":9.99},
+  {"id":"item-2","name":"","value":5.0},
+  {"id":"item-3","name":"Widget Gamma","value":-1.0},
+  {"id":"item-4","name":"Widget Delta","value":14.99}
+]"""
 
 let urlCatLabel (slug: string) =
     match slug with
@@ -140,7 +251,8 @@ let init () =
     let defaultCrud = { GetId = "1"; CreateTitle = ""; CreateCompleted = false; UpdateId = "1"; UpdateTitle = ""; UpdateCompleted = false; DeleteId = "1" }
     let defaultPag  = { Filter = ""; SortBy = "id"; SortDir = "asc"; PageSize = "5"; Page = 1 }
     let defaultAuth = { Username = "admin"; Password = "password123"; Token = "" }
-    { Page = parsePage hash; Hash = hash; ElmishCounter = counter; BackendResults = Map.empty; Theme = Dark; SidebarOpen = false; CrudForm = defaultCrud; PagForm = defaultPag; AuthForm = defaultAuth; RateLimitLog = []; JobPolling = false; JobLog = []; WsStatus = WsIdle; WsLog = []; WsInput = ""; UploadFile = None; SseLog = []; SseActive = false }, Cmd.none
+    let defaultVal = { ValName = ""; ValEmail = ""; ValAge = "" }
+    { Page = parsePage hash; Hash = hash; ElmishCounter = counter; BackendResults = Map.empty; Theme = Dark; SidebarOpen = false; CrudForm = defaultCrud; PagForm = defaultPag; AuthForm = defaultAuth; RateLimitLog = []; JobPolling = false; JobLog = []; WsStatus = WsIdle; WsLog = []; WsInput = ""; UploadFile = None; SseLog = []; SseActive = false; CacheEtag = ""; ContentNegAccept = "application/json"; ContentNegCt = ""; ValForm = defaultVal; ApiKey = "sk-demo-abc123"; StreamBuffer = ""; StreamActive = false; IdempKey = ""; IdempLog = []; CorrLog = []; OptEtag = ""; OptFetchedBody = ""; OptEditContent = ""; OptEditAuthor = ""; LPActive = false; LPEventId = 0; LPLog = []; LPInput = ""; RetryActive = false; RetryLog = []; RetrySession = ""; PatchName = ""; PatchEmail = ""; PatchBio = ""; PatchWebsite = ""; PatchBody = ""; VerV1Status = 0; VerV1Body = ""; VerV1Headers = ""; VerV2Status = 0; VerV2Body = ""; VerV2Headers = ""; BulkInput = defaultBulkInput; BulkBody = ""; BulkStatus = 0; SoftBody = ""; SoftShowDel = false; CBLog = []; CBFailRate = "0.7"; CBActive = false }, Cmd.none
 
 [<Fable.Core.Emit("fetch($0).then(r=>r.text().then(b=>({status:r.status,body:b})))")>]
 let private fetchGet (url: string) : Fable.Core.JS.Promise<{| status: int; body: string |}> = jsNative
@@ -222,6 +334,98 @@ let private attachSseHandlers (es: obj) (onMsg: string -> unit) (onDone: unit ->
 let private sseClose (es: obj) : unit = jsNative
 
 let mutable private sseConn : obj option = None
+
+[<Fable.Core.Emit("(function(url,inm){return fetch(url,inm?{headers:{'If-None-Match':inm}}:{}).then(r=>r.text().then(b=>({status:r.status,body:b,etag:r.headers.get('ETag')||''})));})($0,$1)")>]
+let private fetchCache (url: string) (inm: string) : Fable.Core.JS.Promise<{| status: int; body: string; etag: string |}> = jsNative
+
+[<Fable.Core.Emit("fetch($0,{headers:{Accept:$1}}).then(r=>r.text().then(b=>({status:r.status,body:b,ct:r.headers.get('Content-Type')||''})))")>]
+let private fetchAccept (url: string) (accept: string) : Fable.Core.JS.Promise<{| status: int; body: string; ct: string |}> = jsNative
+
+[<Fable.Core.Emit("JSON.stringify({name:$0,email:$1,age:parseInt($2)||0})")>]
+let private validationJson (name: string) (email: string) (age: string) : string = jsNative
+
+[<Fable.Core.Emit("fetch($0,{headers:{'X-Api-Key':$1}}).then(r=>r.text().then(b=>({status:r.status,body:b})))")>]
+let private fetchApiKey (url: string) (key: string) : Fable.Core.JS.Promise<{| status: int; body: string |}> = jsNative
+
+[<Fable.Core.Emit("(function(url,onChunk,onDone,onErr){fetch(url).then(function(r){var rd=r.body.getReader();var dc=new TextDecoder();function go(){rd.read().then(function(x){if(x.done){onDone();}else{onChunk(dc.decode(x.value,{stream:true}));go();}}).catch(function(e){onErr(e.message||String(e));});}go();}).catch(function(e){onErr(e.message||String(e));});})($0,$1,$2,$3)")>]
+let private fetchStream (url: string) (onChunk: string -> unit) (onDone: unit -> unit) (onErr: string -> unit) : unit = jsNative
+
+[<Fable.Core.Emit("fetch($0,{method:'POST',headers:{'Idempotency-Key':$1}}).then(r=>r.text().then(b=>({status:r.status,body:b,replayed:r.headers.get('X-Idempotent-Replayed')||''})))")>]
+let private fetchIdempotent (url: string) (key: string) : Fable.Core.JS.Promise<{| status: int; body: string; replayed: string |}> = jsNative
+
+[<Fable.Core.Emit("Math.random().toString(36).slice(2,10)+'-'+Math.random().toString(36).slice(2,10)")>]
+let private genIdempKey () : string = jsNative
+
+[<Fable.Core.Emit("(crypto.randomUUID?crypto.randomUUID():(Math.random().toString(36).slice(2,10)+'-'+Math.random().toString(36).slice(2,6)))")>]
+let private genUUID () : string = jsNative
+
+[<Fable.Core.Emit("(function(url,id){var h={};if(id)h['X-Request-ID']=id;return fetch(url,{headers:h}).then(r=>r.text().then(b=>({status:r.status,body:b,reqId:r.headers.get('X-Request-ID')||'',rt:r.headers.get('X-Response-Time')||''})));})($0,$1)")>]
+let private fetchCorrelation (url: string) (id: string) : Fable.Core.JS.Promise<{| status: int; body: string; reqId: string; rt: string |}> = jsNative
+
+[<Fable.Core.Emit("fetch($0,{method:'PUT',headers:{'Content-Type':'application/json','If-Match':$2},body:$1}).then(r=>r.text().then(b=>({status:r.status,body:b,etag:r.headers.get('ETag')||''})))")>]
+let private putWithIfMatch (url: string) (body: string) (ifMatch: string) : Fable.Core.JS.Promise<{| status: int; body: string; etag: string |}> = jsNative
+
+[<Fable.Core.Emit("JSON.stringify({content:$0,author:$1})")>]
+let private optPutJson (content: string) (author: string) : string = jsNative
+
+[<Fable.Core.Emit("(function(s){try{return JSON.parse(s).eventId|0}catch(_){return 0}})($0)")>]
+let private parseLPEventId (body: string) : int = jsNative
+
+[<Fable.Core.Emit("(function(s){try{return JSON.parse(s).data||''}catch(_){return s}})($0)")>]
+let private parseLPData (body: string) : string = jsNative
+
+[<Fable.Core.Emit("JSON.stringify({message:$0})")>]
+let private lpMsgJson (msg: string) : string = jsNative
+
+[<Fable.Core.Emit("(function(url,ses,max,base,onStep,onDone){var n=0;function go(){n++;onStep('attempt',n,0);fetch(url+'?session='+encodeURIComponent(ses)).then(function(r){return r.text().then(function(b){return{ok:r.ok,st:r.status,b:b};});}).then(function(r){if(r.ok){onDone(true,n,r.b);}else if(n<max){var d=base*Math.pow(2,n-1)|0;onStep('wait',n,d);setTimeout(go,d);}else{onDone(false,n,r.b);}}).catch(function(e){onDone(false,n,String(e));});}go();})($0,$1,$2,$3,$4,$5)")>]
+let private fetchRetry (url: string) (session: string) (maxRetries: int) (baseDelay: int) (onStep: string -> int -> int -> unit) (onDone: bool -> int -> string -> unit) : unit = jsNative
+
+[<Fable.Core.Emit("(function(s){try{var o=JSON.parse(s);return{name:o.name||'',email:o.email||'',bio:o.bio||'',website:o.website||''}}catch(_){return{name:'',email:'',bio:'',website:''}}})($0)")>]
+let private parsePatch (s: string) : {| name: string; email: string; bio: string; website: string |} = jsNative
+
+[<Fable.Core.Emit("JSON.stringify({name:$0,email:$1,bio:$2,website:$3})")>]
+let private makePatchBody (name: string) (email: string) (bio: string) (website: string) : string = jsNative
+
+[<Fable.Core.Emit("fetch($0).then(r=>r.text().then(b=>({status:r.status,body:b,deprecation:r.headers.get('Deprecation')||'',sunset:r.headers.get('Sunset')||'',link:r.headers.get('Link')||''})))")>]
+let private fetchVersioned (url: string) : Fable.Core.JS.Promise<{| status: int; body: string; deprecation: string; sunset: string; link: string |}> = jsNative
+
+[<Fable.Core.Emit("(function(s){try{return JSON.parse(s).map(function(i){return{id:i.id,name:i.name,deleted:!!i.deleted,deletedAt:i.deletedAt||''}})}catch(_){return[]}})($0)")>]
+let private parseSoftItems (s: string) : {| id: int; name: string; deleted: bool; deletedAt: string |} array = jsNative
+
+[<Fable.Core.Emit("
+(function(s){
+  try {
+    var o = JSON.parse(s);
+    var r = o.results || [];
+    return {
+      created: (o.summary || {}).created | 0,
+      failed: (o.summary || {}).failed | 0,
+      items: r.map(function(x){
+        return {
+          index: x.index,
+          id: x.id || '',
+          ok: x.ok,
+          status: x.status,
+          errors: (x.errors || []).join(', ')
+        };
+      })
+    };
+  } catch(_) {
+    return { created: 0, failed: 0, items: [] };
+  }
+})($0)
+")>]
+let private parseBulkResp (s: string) : 
+    {| created: int
+       failed: int
+       items: {| index: int
+                 id: string
+                 ok: bool
+                 status: int
+                 errors: string |} array |} = jsNative
+
+[<Fable.Core.Emit("(function(s){try{var o=JSON.parse(s);return{state:o.state||'?',message:o.message||s,failures:o.failures|0,successes:o.successes|0,totalCalls:o.totalCalls|0}}catch(_){return{state:'?',message:s,failures:0,successes:0,totalCalls:0}}})($0)")>]
+let private parseCBResp (s: string) : {| state: string; message: string; failures: int; successes: int; totalCalls: int |} = jsNative
 
 let update msg model =
     match msg with
@@ -454,6 +658,343 @@ let update msg model =
     | SseLogClear ->
         { model with SseLog = [] }, Cmd.none
 
+    // ── API Key Auth ─────────────────────────────────────────────────────────
+    | ApiKeySet key ->
+        { model with ApiKey = key }, Cmd.none
+    | ApiKeyFetch ->
+        let cmd =
+            Cmd.OfPromise.either
+                (fun () -> fetchApiKey "/api/demo/apikey/resource" model.ApiKey)
+                ()
+                (fun r -> BackendReceive("apikey", r.status, r.body))
+                (fun ex -> BackendError("apikey", ex.Message))
+        { model with BackendResults = model.BackendResults |> Map.add "apikey" Fetching }, cmd
+
+    // ── Streaming Download ───────────────────────────────────────────────────
+    | StreamStart ->
+        let cmd : Cmd<Msg> = [ fun dispatch ->
+            fetchStream "/api/demo/stream/data"
+                (fun chunk -> dispatch (StreamChunk chunk))
+                (fun ()    -> dispatch StreamDone)
+                (fun err   -> dispatch (BackendError("stream", err))) ]
+        { model with StreamActive = true; StreamBuffer = "" }, cmd
+    | StreamChunk chunk ->
+        { model with StreamBuffer = model.StreamBuffer + chunk }, Cmd.none
+    | StreamDone ->
+        { model with StreamActive = false }, Cmd.none
+    | StreamClear ->
+        { model with StreamBuffer = ""; StreamActive = false }, Cmd.none
+
+    // ── Idempotency Keys ─────────────────────────────────────────────────────
+    | IdempKeySet key ->
+        { model with IdempKey = key }, Cmd.none
+    | IdempKeyGen ->
+        { model with IdempKey = genIdempKey (); IdempLog = [] }, Cmd.none
+    | IdempSubmit ->
+        let cmd =
+            Cmd.OfPromise.either
+                (fun () -> fetchIdempotent "/api/demo/idempotent/order" model.IdempKey)
+                ()
+                (fun r -> IdempReceived(r.status, r.replayed = "true", r.body))
+                (fun ex -> BackendError("idemp", ex.Message))
+        { model with BackendResults = model.BackendResults |> Map.add "idemp" Fetching }, cmd
+    | IdempReceived(status, replayed, body) ->
+        { model with IdempLog = (status, replayed, body) :: model.IdempLog
+                     BackendResults = model.BackendResults |> Map.add "idemp" (Done(status, body)) }, Cmd.none
+    | IdempLogClear ->
+        { model with IdempLog = []; IdempKey = "" }, Cmd.none
+
+    // ── Correlation ID ───────────────────────────────────────────────────────
+    | CorrPing clientOwned ->
+        let id = if clientOwned then genUUID() else ""
+        let cmd =
+            Cmd.OfPromise.either
+                (fun () -> fetchCorrelation "/api/demo/correlation/ping" id)
+                ()
+                (fun r -> CorrReceived(r.reqId, r.rt, r.body))
+                (fun ex -> BackendError("corr", ex.Message))
+        { model with BackendResults = model.BackendResults |> Map.add "corr" Fetching }, cmd
+    | CorrReceived(reqId, rt, body) ->
+        { model with CorrLog = (reqId, rt, body) :: model.CorrLog |> List.truncate 10
+                     BackendResults = model.BackendResults |> Map.add "corr" (Done(200, body)) }, Cmd.none
+    | CorrLogClear ->
+        { model with CorrLog = []; BackendResults = model.BackendResults |> Map.remove "corr" }, Cmd.none
+
+    // ── Optimistic Concurrency ───────────────────────────────────────────────
+    | OptFetch ->
+        let cmd =
+            Cmd.OfPromise.either
+                (fun () -> fetchCache "/api/demo/optimistic/doc" "")
+                ()
+                (fun r -> OptFetched(r.etag, r.body))
+                (fun ex -> BackendError("opt", ex.Message))
+        { model with BackendResults = model.BackendResults |> Map.add "opt" Fetching }, cmd
+    | OptFetched(etag, body) ->
+        { model with OptEtag = etag; OptFetchedBody = body
+                     BackendResults = model.BackendResults |> Map.add "opt" (Done(200, body)) }, Cmd.none
+    | OptSet(field, value) ->
+        match field with
+        | "content" -> { model with OptEditContent = value }, Cmd.none
+        | "author"  -> { model with OptEditAuthor  = value }, Cmd.none
+        | _         -> model, Cmd.none
+    | OptUpdate ->
+        let body = optPutJson model.OptEditContent model.OptEditAuthor
+        let cmd =
+            Cmd.OfPromise.either
+                (fun () -> putWithIfMatch "/api/demo/optimistic/doc" body model.OptEtag)
+                ()
+                (fun r -> OptConflicted(r.status, r.etag, r.body))
+                (fun ex -> BackendError("opt", ex.Message))
+        { model with BackendResults = model.BackendResults |> Map.add "opt" Fetching }, cmd
+    | OptForceConflict ->
+        let cmd =
+            Cmd.OfPromise.either
+                (fun () -> fetchJson "/api/demo/optimistic/force" "POST" "")
+                ()
+                (fun r -> BackendReceive("opt-force", r.status, r.body))
+                (fun ex -> BackendError("opt-force", ex.Message))
+        { model with BackendResults = model.BackendResults |> Map.add "opt-force" Fetching }, cmd
+    | OptConflicted(status, etag, body) ->
+        let newEtag     = if status = 200 && etag <> "" then etag else model.OptEtag
+        let fetchedBody = if status = 200 then body else model.OptFetchedBody
+        { model with OptEtag = newEtag; OptFetchedBody = fetchedBody
+                     BackendResults = model.BackendResults |> Map.add "opt" (Done(status, body)) }, Cmd.none
+
+    // ── Long Polling ─────────────────────────────────────────────────────────
+    | LPStart ->
+        let lastId = model.LPEventId
+        let cmd =
+            Cmd.OfPromise.either
+                (fun () -> fetchGet $"/api/demo/longpoll/wait?lastEventId={lastId}")
+                ()
+                (fun r -> LPReceived(r.status, r.body))
+                (fun ex -> LPReceived(-1, ex.Message))
+        { model with LPActive = true; LPLog = [] }, cmd
+    | LPStop ->
+        { model with LPActive = false }, Cmd.none
+    | LPReceived(status, body) ->
+        if not model.LPActive then model, Cmd.none
+        else
+            let newId  = if status = 200 then parseLPEventId body else model.LPEventId
+            let newLog =
+                if status = 200 then
+                    $"Event #{newId} — {parseLPData body}" :: model.LPLog |> List.truncate 20
+                else model.LPLog
+            let nextCmd =
+                Cmd.OfPromise.either
+                    (fun () -> fetchGet $"/api/demo/longpoll/wait?lastEventId={newId}")
+                    ()
+                    (fun r -> LPReceived(r.status, r.body))
+                    (fun ex -> LPReceived(-1, ex.Message))
+            { model with LPEventId = newId; LPLog = newLog }, nextCmd
+    | LPPublishSet s ->
+        { model with LPInput = s }, Cmd.none
+    | LPPublish ->
+        if model.LPInput.Trim() = "" then model, Cmd.none
+        else
+            let cmd =
+                Cmd.OfPromise.either
+                    (fun () -> fetchJson "/api/demo/longpoll/publish" "POST" (lpMsgJson model.LPInput))
+                    ()
+                    (fun r -> BackendReceive("lp-pub", r.status, r.body))
+                    (fun ex -> BackendError("lp-pub", ex.Message))
+            { model with LPInput = "" }, cmd
+    | LPLogClear ->
+        { model with LPLog = []; LPEventId = 0 }, Cmd.none
+
+    // ── Retry with Backoff ───────────────────────────────────────────────────
+    | RetryStart ->
+        let session = if model.RetrySession = "" then genIdempKey() else model.RetrySession
+        let cmd : Cmd<Msg> = [ fun dispatch ->
+            fetchRetry "/api/demo/retry/flaky" session 5 500
+                (fun kind attempt delay -> dispatch (RetryStep(kind, attempt, delay)))
+                (fun ok attempt body   -> dispatch (RetryDone(ok, attempt, body))) ]
+        { model with RetryActive = true; RetryLog = []; RetrySession = session }, cmd
+    | RetryStep(kind, attempt, delayMs) ->
+        let entry =
+            match kind with
+            | "attempt" -> $"→ Attempt #{attempt}"
+            | "wait"    -> $"  ⏳ 503 — backing off {delayMs}ms"
+            | _         -> $"  {kind} #{attempt}"
+        { model with RetryLog = entry :: model.RetryLog }, Cmd.none
+    | RetryDone(ok, attempt, body) ->
+        let entry =
+            if ok then $"  ✓ Attempt #{attempt} succeeded"
+            else        $"  ✗ All {attempt} attempts exhausted"
+        { model with RetryActive = false; RetryLog = entry :: model.RetryLog }, Cmd.none
+    | RetryClear ->
+        { model with RetryLog = []; RetrySession = ""; RetryActive = false }, Cmd.none
+    | RetryNewSession ->
+        { model with RetrySession = genIdempKey(); RetryLog = []; RetryActive = false }, Cmd.none
+
+    // ── PATCH / Partial Update ───────────────────────────────────────────────
+    | PatchLoad ->
+        let cmd = Cmd.OfPromise.either fetchGet "/api/demo/patch/profile"
+                    (fun r -> PatchLoaded(r.status, r.body))
+                    (fun ex -> BackendError("patch", ex.Message))
+        model, cmd
+    | PatchLoaded(_, body) ->
+        let p = parsePatch body
+        { model with PatchName = p.name; PatchEmail = p.email; PatchBio = p.bio; PatchWebsite = p.website; PatchBody = body }, Cmd.none
+    | PatchSet(field, value) ->
+        match field with
+        | "name"    -> { model with PatchName    = value }, Cmd.none
+        | "email"   -> { model with PatchEmail   = value }, Cmd.none
+        | "bio"     -> { model with PatchBio     = value }, Cmd.none
+        | "website" -> { model with PatchWebsite = value }, Cmd.none
+        | _         -> model, Cmd.none
+    | PatchSave ->
+        let body = makePatchBody model.PatchName model.PatchEmail model.PatchBio model.PatchWebsite
+        let cmd = Cmd.OfPromise.either
+                    (fun () -> fetchJson "/api/demo/patch/profile" "PATCH" body)
+                    ()
+                    (fun r -> PatchSaved(r.status, r.body))
+                    (fun ex -> BackendError("patch", ex.Message))
+        model, cmd
+    | PatchSaved(_, body) ->
+        let p = parsePatch body
+        { model with PatchName = p.name; PatchEmail = p.email; PatchBio = p.bio; PatchWebsite = p.website; PatchBody = body }, Cmd.none
+
+    // ── API Versioning ───────────────────────────────────────────────────────
+    | VerFetch ver ->
+        let url = if ver = "v1" then "/api/v1/demo/version/greet" else "/api/v2/demo/version/greet"
+        let cmd = Cmd.OfPromise.either fetchVersioned url
+                    (fun r -> VerReceived(ver, r.status, r.body, if r.deprecation <> "" then $"Deprecation: {r.deprecation}\nSunset: {r.sunset}\nLink: {r.link}" else ""))
+                    (fun ex -> BackendError("ver", ex.Message))
+        model, cmd
+    | VerReceived(ver, status, body, headers) ->
+        if ver = "v1"
+        then { model with VerV1Status = status; VerV1Body = body; VerV1Headers = headers }, Cmd.none
+        else { model with VerV2Status = status; VerV2Body = body; VerV2Headers = headers }, Cmd.none
+
+    // ── Bulk Operations ──────────────────────────────────────────────────────
+    | BulkSetInput v ->
+        { model with BulkInput = v }, Cmd.none
+    | BulkImport ->
+        let cmd = Cmd.OfPromise.either
+                    (fun () -> fetchJson "/api/demo/bulk/items" "POST" model.BulkInput)
+                    ()
+                    (fun r -> BulkImported(r.status, r.body))
+                    (fun ex -> BackendError("bulk", ex.Message))
+        model, cmd
+    | BulkImported(status, body) ->
+        { model with BulkBody = body; BulkStatus = status }, Cmd.none
+
+    // ── Soft Delete & Restore ────────────────────────────────────────────────
+    | SoftFetch ->
+        let qs  = if model.SoftShowDel then "?includeDeleted=true" else ""
+        let url = "/api/demo/softdelete/items" + qs
+        let cmd = Cmd.OfPromise.either fetchGet url
+                    (fun r -> SoftFetched r.body)
+                    (fun ex -> BackendError("soft", ex.Message))
+        model, cmd
+    | SoftFetched body ->
+        { model with SoftBody = body }, Cmd.none
+    | SoftDelete id ->
+        let cmd = Cmd.OfPromise.either
+                    (fun () -> fetchJson $"/api/demo/softdelete/items/{id}" "DELETE" "")
+                    ()
+                    (fun r -> SoftDeleted r.body)
+                    (fun ex -> BackendError("soft", ex.Message))
+        model, cmd
+    | SoftDeleted _ ->
+        model, Cmd.ofMsg SoftFetch
+    | SoftRestore id ->
+        let cmd = Cmd.OfPromise.either
+                    (fun () -> fetchJson $"/api/demo/softdelete/items/{id}/restore" "POST" "")
+                    ()
+                    (fun r -> SoftRestored r.body)
+                    (fun ex -> BackendError("soft", ex.Message))
+        model, cmd
+    | SoftRestored _ ->
+        model, Cmd.ofMsg SoftFetch
+    | SoftToggleDel ->
+        { model with SoftShowDel = not model.SoftShowDel; SoftBody = "" }, Cmd.none
+
+    // ── Circuit Breaker ──────────────────────────────────────────────────────
+    | CBCall ->
+        let url = $"/api/demo/circuitbreaker/call?failRate={encodeQuery model.CBFailRate}"
+        let cmd = Cmd.OfPromise.either fetchGet url
+                    (fun r -> CBCalled(r.status, r.body))
+                    (fun ex -> CBCalled(0, ex.Message))
+        { model with CBActive = true }, cmd
+    | CBCalled(status, body) ->
+        let r   = parseCBResp body
+        let log = (status, r.state, r.message) :: model.CBLog |> List.truncate 30
+        { model with CBLog = log; CBActive = false }, Cmd.none
+    | CBReset ->
+        let cmd = Cmd.OfPromise.either
+                    (fun () -> fetchJson "/api/demo/circuitbreaker/reset" "POST" "")
+                    ()
+                    (fun r -> CBResetDone(r.status, r.body))
+                    (fun ex -> BackendError("cb", ex.Message))
+        model, cmd
+    | CBResetDone _ ->
+        { model with CBLog = []; CBActive = false }, Cmd.none
+    | CBSetFailRate v ->
+        { model with CBFailRate = v }, Cmd.none
+    | CBLogClear ->
+        { model with CBLog = [] }, Cmd.none
+
+    // ── Response Caching ─────────────────────────────────────────────────────
+    | CacheFetch useEtag ->
+        let inm = if useEtag then model.CacheEtag else ""
+        let cmd =
+            Cmd.OfPromise.either
+                (fun () -> fetchCache "/api/demo/cache" inm)
+                ()
+                (fun r -> CacheReceived(r.status, r.body, r.etag))
+                (fun ex -> BackendError("cache", ex.Message))
+        { model with BackendResults = model.BackendResults |> Map.add "cache" Fetching }, cmd
+    | CacheMutate ->
+        let cmd =
+            Cmd.OfPromise.either
+                (fun () -> fetchJson "/api/demo/cache" "POST" "")
+                ()
+                (fun r -> BackendReceive("cache-mutate", r.status, r.body))
+                (fun ex -> BackendError("cache-mutate", ex.Message))
+        { model with BackendResults = model.BackendResults |> Map.add "cache-mutate" Fetching }, cmd
+    | CacheReceived(status, body, etag) ->
+        let newEtag = if etag <> "" then etag else model.CacheEtag
+        { model with CacheEtag = newEtag
+                     BackendResults = model.BackendResults |> Map.add "cache" (Done(status, body)) }, Cmd.none
+
+    // ── Content Negotiation ──────────────────────────────────────────────────
+    | ContentNegSet accept ->
+        { model with ContentNegAccept = accept }, Cmd.none
+    | ContentNegFetch ->
+        let cmd =
+            Cmd.OfPromise.either
+                (fun () -> fetchAccept "/api/demo/content-neg" model.ContentNegAccept)
+                ()
+                (fun r -> ContentNegReceived(r.status, r.body, r.ct))
+                (fun ex -> BackendError("content-neg", ex.Message))
+        { model with BackendResults = model.BackendResults |> Map.add "content-neg" Fetching }, cmd
+    | ContentNegReceived(status, body, ct) ->
+        { model with ContentNegCt = ct
+                     BackendResults = model.BackendResults |> Map.add "content-neg" (Done(status, body)) }, Cmd.none
+
+    // ── Request Validation ───────────────────────────────────────────────────
+    | ValFormSet(field, value) ->
+        let f = model.ValForm
+        let newForm =
+            match field with
+            | "name"  -> { f with ValName  = value }
+            | "email" -> { f with ValEmail = value }
+            | "age"   -> { f with ValAge   = value }
+            | _       -> f
+        { model with ValForm = newForm }, Cmd.none
+    | ValSubmit ->
+        let f = model.ValForm
+        let body = validationJson f.ValName f.ValEmail f.ValAge
+        let cmd =
+            Cmd.OfPromise.either
+                (fun () -> fetchJson "/api/demo/validate" "POST" body)
+                ()
+                (fun r -> BackendReceive("validation", r.status, r.body))
+                (fun ex -> BackendError("validation", ex.Message))
+        { model with BackendResults = model.BackendResults |> Map.add "validation" Fetching }, cmd
+
 // Elmish 4 subscription: hashchange listener.
 let hashSub (_model: Model) : Sub<Msg> =
     [ ["hash"], fun dispatch ->
@@ -598,7 +1139,22 @@ let sidebar (model: Model) (dispatch: Msg -> unit) =
                 sidebarLink "Background Jobs"      "#/backend/background-jobs" model.Hash
                 sidebarLink "WebSocket"            "#/backend/websocket"       model.Hash
                 sidebarLink "File Upload"          "#/backend/file-upload"     model.Hash
-                sidebarLink "Server-Sent Events"  "#/backend/sse"             model.Hash
+                sidebarLink "Server-Sent Events"  "#/backend/sse"                  model.Hash
+                sidebarLink "Correlation ID"       "#/backend/correlation-id"       model.Hash
+                sidebarLink "Optimistic Concurrency" "#/backend/optimistic-concurrency" model.Hash
+                sidebarLink "Long Polling"        "#/backend/long-polling"         model.Hash
+                sidebarLink "Retry with Backoff"  "#/backend/retry-backoff"        model.Hash
+                sidebarLink "API Key Auth"         "#/backend/api-key-auth"         model.Hash
+                sidebarLink "Streaming Download"  "#/backend/streaming-download"   model.Hash
+                sidebarLink "Idempotency Keys"    "#/backend/idempotency-keys"     model.Hash
+                sidebarLink "Response Caching"    "#/backend/response-caching"     model.Hash
+                sidebarLink "Content Negotiation" "#/backend/content-negotiation"  model.Hash
+                sidebarLink "Request Validation"  "#/backend/request-validation"   model.Hash
+                sidebarLink "PATCH / Partial Update" "#/backend/patch-update"       model.Hash
+                sidebarLink "API Versioning"      "#/backend/api-versioning"        model.Hash
+                sidebarLink "Bulk Operations"     "#/backend/bulk-operations"       model.Hash
+                sidebarLink "Soft Delete & Restore" "#/backend/soft-delete"         model.Hash
+                sidebarLink "Circuit Breaker"     "#/backend/circuit-breaker"       model.Hash
             ]
             div [ ClassName "sidebar-group" ] [
                 div [ ClassName "sidebar-group-label" ] [ str "Examples" ]
@@ -2651,6 +3207,404 @@ let private backendDemos = [
     //
     // Wired in Server.fs:
     //   get Route.sseStream Demos.SseDemo.stream""" }
+
+    { Slug        = "api-key-auth"
+      Name        = "API Key Auth"
+      Description = "Protect an endpoint with a static API key passed in the X-Api-Key request header. Returns 401 when the header is absent and 403 when the key is unrecognised."
+      Method      = "GET"
+      Url         = "/api/demo/apikey/resource"
+      SourceCode  =
+    """// Demos/ApiKeyDemo.fs
+    let private validKeys =
+        Map.ofList [ "sk-demo-abc123", "alice"; "sk-demo-xyz789", "bob" ]
+
+    let resource : HttpHandler = fun next ctx ->
+        let key =
+            match ctx.Request.Headers.TryGetValue("X-Api-Key") with
+            | true, v -> v.ToString()
+            | _       -> ""
+        if key = "" then
+            (setStatusCode 401 >=> json {| error = "Missing X-Api-Key header" |}) next ctx
+        else
+            match validKeys |> Map.tryFind key with
+            | None      -> (setStatusCode 403 >=> json {| error = "Invalid API key" |}) next ctx
+            | Some user -> json {| user = user; scopes = [|"read";"list"|]; secret = "..." |} next ctx
+
+    // Wired in Server.fs:
+    //   get Route.apiKeyResource Demos.ApiKeyDemo.resource""" }
+
+    { Slug        = "streaming-download"
+      Name        = "Streaming Download"
+      Description = "The server writes rows one at a time with FlushAsync, sending chunked transfer-encoded data. The browser reads it incrementally via the Fetch ReadableStream API — bytes arrive before the response is complete."
+      Method      = "GET"
+      Url         = "/api/demo/stream/data"
+      SourceCode  =
+    """// Demos/StreamingDemo.fs
+    let stream : HttpHandler = fun next ctx -> task {
+        ctx.Response.ContentType <- "text/plain; charset=utf-8"
+        ctx.Response.Headers["Content-Encoding"] <- StringValues("identity")  // bypass gzip
+
+        let header = Encoding.UTF8.GetBytes("row,timestamp,sensor_id,value\r\n")
+        do! ctx.Response.Body.WriteAsync(header, 0, header.Length)
+        do! ctx.Response.Body.FlushAsync()
+
+        for i in 1..20 do
+            let line = sprintf "%d,%s,sensor-%02d,%d\r\n" i ... (i%5+1) ...
+            let bytes = Encoding.UTF8.GetBytes(line)
+            do! ctx.Response.Body.WriteAsync(bytes, 0, bytes.Length)
+            do! ctx.Response.Body.FlushAsync()
+            if i < 20 then do! Task.Delay(150)
+
+        return Some ctx }
+
+    // Wired in Server.fs:
+    //   get Route.streamData Demos.StreamingDemo.stream""" }
+
+    { Slug        = "idempotency-keys"
+      Name        = "Idempotency Keys"
+      Description = "POST an order with a client-supplied Idempotency-Key header. The server records the result and returns the same response on every retry — safe deduplication with no side effects. Header X-Idempotent-Replayed: true marks replays."
+      Method      = "POST"
+      Url         = "/api/demo/idempotent/order"
+      SourceCode  =
+    """// Demos/IdempotencyDemo.fs
+    let private cache = ConcurrentDictionary<string, OrderResult>()
+
+    let placeOrder : HttpHandler = fun next ctx -> task {
+        let key =
+            match ctx.Request.Headers.TryGetValue("Idempotency-Key") with
+            | true, v -> v.ToString().Trim()
+            | _       -> ""
+        if key = "" then
+            return! (setStatusCode 400 >=> json {| error = "Missing Idempotency-Key header" |}) next ctx
+        else
+            match cache.TryGetValue(key) with
+            | true, existing ->
+                return! (setStatusCode 200 >=> setHttpHeader "X-Idempotent-Replayed" "true"
+                         >=> json existing) next ctx
+            | _ ->
+                let result = { orderId = ...; amount = ...; status = "confirmed"; ... }
+                cache.[key] <- result
+                return! (setStatusCode 201 >=> json result) next ctx }
+
+    // Wired in Server.fs:
+    //   post Route.idempotent Demos.IdempotencyDemo.placeOrder""" }
+
+    { Slug        = "correlation-id"
+      Name        = "Correlation ID"
+      Description = "Every request gets an X-Request-ID header — either client-supplied or server-generated. The same ID propagates to every downstream service call, making the full request chain traceable in logs."
+      Method      = "GET"
+      Url         = "/api/demo/correlation/ping"
+      SourceCode  =
+    """// Demos/CorrelationDemo.fs
+    let ping : HttpHandler = fun next ctx ->
+        let requestId =
+            match ctx.Request.Headers.TryGetValue("X-Request-ID") with
+            | true, v when v.ToString() <> "" -> v.ToString()
+            | _ -> Guid.NewGuid().ToString("N").[..11]
+
+        ctx.Response.Headers["X-Request-ID"]    <- StringValues(requestId)
+        ctx.Response.Headers["X-Response-Time"] <- StringValues($"{...}ms")
+
+        json {|
+            requestId = requestId
+            services  = [|
+                {| service = "auth-service";  correlationId = requestId; ... |}
+                {| service = "data-service";  correlationId = requestId; ... |}
+            |]
+        |} next ctx
+
+    // Real-world: use ASP.NET Core middleware instead of per-handler logic.
+    // app.Use(fun ctx next -> task {
+    //     ctx.Items["RequestId"] <- id
+    //     ctx.Response.OnStarting(fun () ->
+    //         ctx.Response.Headers["X-Request-ID"] <- StringValues(id)
+    //         Task.CompletedTask) |> ignore
+    //     do! next.Invoke(ctx) })""" }
+
+    { Slug        = "optimistic-concurrency"
+      Name        = "Optimistic Concurrency"
+      Description = "GET returns the document with an ETag. PUT requires If-Match: <etag> — if the document changed since you fetched it, the server returns 412 Precondition Failed. No locks needed."
+      Method      = "PUT"
+      Url         = "/api/demo/optimistic/doc"
+      SourceCode  =
+    """// Demos/OptimisticDemo.fs
+    let putDoc : HttpHandler = fun next ctx -> task {
+        let ifMatch =
+            match ctx.Request.Headers.TryGetValue("If-Match") with
+            | true, v -> v.ToString()
+            | _       -> ""
+        if ifMatch = "" then
+            return! (setStatusCode 428 >=> json {| error = "Precondition Required" |}) next ctx
+        elif ifMatch <> etag doc then
+            return! (setStatusCode 412 >=> json {| error = "Precondition Failed" |}) next ctx
+        else
+            let! req = ctx.BindJsonAsync<PutRequest>()
+            doc <- { version = doc.version + 1; content = req.content; ... }
+            return! (setHttpHeader "ETag" (etag doc) >=> json doc) next ctx }
+
+    // Routes:
+    //   get  Route.optimisticDoc   Demos.OptimisticDemo.getDoc
+    //   put  Route.optimisticDoc   Demos.OptimisticDemo.putDoc
+    //   post Route.optimisticForce Demos.OptimisticDemo.forceUpdate""" }
+
+    { Slug        = "long-polling"
+      Name        = "Long Polling"
+      Description = "Client holds a GET open for up to 25 s. The server blocks until a new event arrives, then responds immediately. On timeout (204 No Content) the client re-polls. Compare with SSE — long polling works through any proxy."
+      Method      = "GET"
+      Url         = "/api/demo/longpoll/wait"
+      SourceCode  =
+    """// Demos/LongPollDemo.fs
+    let wait : HttpHandler = fun next ctx -> task {
+        let lastId = ... // from query string
+        let deadline = DateTime.UtcNow.AddSeconds(25.0)
+        let mutable result = None
+
+        while result.IsNone && DateTime.UtcNow < deadline
+                             && not ctx.RequestAborted.IsCancellationRequested do
+            let (id, data) = currentEvent()
+            if id > lastId then
+                result <- Some {| eventId = id; data = data; ... |}
+            else
+                try  do! Task.Delay(500, ctx.RequestAborted)
+                with :? OperationCanceledException -> ()
+
+        match result with
+        | Some r -> return! json r next ctx
+        | None   -> return! setStatusCode 204 next ctx }
+
+    // Routes:
+    //   get  Route.longPollWait    Demos.LongPollDemo.wait
+    //   post Route.longPollPublish Demos.LongPollDemo.publish""" }
+
+    { Slug        = "retry-backoff"
+      Name        = "Retry with Backoff"
+      Description = "The endpoint returns 503 for the first 3 calls per session, then succeeds on the 4th. The client retries with exponential backoff (500 ms → 1 s → 2 s). Each attempt and wait is logged."
+      Method      = "GET"
+      Url         = "/api/demo/retry/flaky"
+      SourceCode  =
+    """// Demos/RetryDemo.fs
+    let private maxFailures = 3
+
+    let flaky : HttpHandler = fun next ctx ->
+        let session = ... // from query string
+        let attempt = counters.AddOrUpdate(session, 1, fun _ c -> c + 1)
+        if attempt <= maxFailures then
+            (setStatusCode 503
+             >=> setHttpHeader "Retry-After" "1"
+             >=> json {| error = "Service temporarily unavailable"; attempt = attempt |}) next ctx
+        else
+            counters.[session] <- 0
+            json {| success = true; attempt = attempt |} next ctx
+
+    // Client-side retry loop (JavaScript):
+    // var n=0; function go(){n++;
+    //   fetch(url).then(r=>{
+    //     if(r.ok){done(true);}
+    //     else if(n<max){setTimeout(go, base*Math.pow(2,n-1));}
+    //     else{done(false);}
+    //   });
+    // } go();""" }
+
+    { Slug        = "response-caching"
+      Name        = "Response Caching"
+      Description = "ETag-based conditional GET. The server hashes the resource and returns it in an ETag header. Subsequent requests with If-None-Match receive 304 Not Modified — zero bytes of body — when nothing has changed."
+      Method      = "GET"
+      Url         = "/api/demo/cache"
+      SourceCode  =
+    """// Demos/CachingDemo.fs
+    let private computeEtag (r: Resource) =
+        let hash = SHA256.HashData(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(r)))
+        "\"" + Convert.ToBase64String(hash).[..7] + "\""
+
+    let get : HttpHandler = fun next ctx ->
+        let etag = computeEtag resource
+        let inm  =
+            match ctx.Request.Headers.TryGetValue("If-None-Match") with
+            | true, v -> v.ToString()
+            | _       -> ""
+        if inm <> "" && inm = etag then
+            setStatusCode 304 next ctx
+        else
+            (setHttpHeader "ETag" etag
+             >=> setHttpHeader "Cache-Control" "max-age=10, must-revalidate"
+             >=> json resource) next ctx
+
+    // Routes in Server.fs:
+    //   get  Route.cacheDemo Demos.CachingDemo.get
+    //   post Route.cacheDemo Demos.CachingDemo.mutate""" }
+
+    { Slug        = "content-negotiation"
+      Name        = "Content Negotiation"
+      Description = "The same endpoint returns JSON, CSV, or plain text depending on the client's Accept header. No extra middleware — the handler inspects Accept and sets the appropriate Content-Type."
+      Method      = "GET"
+      Url         = "/api/demo/content-neg"
+      SourceCode  =
+    """// Demos/ContentNegDemo.fs
+    let get : HttpHandler = fun next ctx ->
+        let accept =
+            match ctx.Request.Headers.TryGetValue("Accept") with
+            | true, v -> v.ToString()
+            | _       -> ""
+        if accept.Contains("text/csv") then
+            (setHttpHeader "Content-Type" "text/csv; charset=utf-8"
+             >=> setBodyFromString (toCsv())) next ctx
+        elif accept.Contains("text/plain") then
+            (setHttpHeader "Content-Type" "text/plain; charset=utf-8"
+             >=> setBodyFromString (toText())) next ctx
+        else
+            (setHttpHeader "Content-Type" "application/json; charset=utf-8"
+             >=> json products) next ctx
+
+    // Wired in Server.fs:
+    //   get Route.contentNeg Demos.ContentNegDemo.get""" }
+
+    { Slug        = "request-validation"
+      Name        = "Request Validation"
+      Description = "POST a user payload to get back 200 (valid) or 422 Unprocessable Entity with a per-field error list. Shows the standard structured-error envelope pattern."
+      Method      = "POST"
+      Url         = "/api/demo/validate"
+      SourceCode  =
+    """// Demos/ValidationDemo.fs
+    let post : HttpHandler = fun next ctx -> task {
+        try
+            let! req = ctx.BindJsonAsync<UserRequest>()
+            let errors = [|
+                if String.IsNullOrWhiteSpace(req.name)  then yield {| field = "name";  message = "Name is required" |}
+                if not (validEmail req.email)             then yield {| field = "email"; message = "Must be a valid email address" |}
+                if req.age < 1 || req.age > 120           then yield {| field = "age";   message = "Age must be between 1 and 120" |}
+            |]
+            if errors.Length = 0 then
+                return! (setStatusCode 200 >=> json {| valid = true; normalized = ... |}) next ctx
+            else
+                return! (setStatusCode 422 >=> json {| valid = false; errors = errors |}) next ctx
+        with _ ->
+            return! (setStatusCode 400 >=> json {| ... |}) next ctx }
+
+    // Wired in Server.fs:
+    //   post Route.validate Demos.ValidationDemo.post""" }
+
+    { Slug        = "patch-update"
+      Name        = "PATCH / Partial Update"
+      Description = "RFC 7396 JSON Merge Patch — send only the fields you want to update. The server merges the request body into the stored document; omitted fields are left unchanged."
+      Method      = "PATCH"
+      Url         = "/api/demo/patch/profile"
+      SourceCode  =
+    """// Demos/PatchDemo.fs
+    let patch : HttpHandler = fun next ctx -> task {
+        let! body = ctx.ReadBodyFromRequestAsync()
+        use  doc  = JsonDocument.Parse body
+        let  root = doc.RootElement
+        let updated = {
+            name    = tryStr root "name"    |> Option.defaultValue profile.name
+            email   = tryStr root "email"   |> Option.defaultValue profile.email
+            bio     = tryStr root "bio"     |> Option.defaultValue profile.bio
+            website = tryStr root "website" |> Option.defaultValue profile.website
+            version = profile.version + 1
+        }
+        profile <- updated
+        return! json updated next ctx
+    }""" }
+
+    { Slug        = "api-versioning"
+      Name        = "API Versioning"
+      Description = "Two side-by-side versions of the same endpoint. v1 returns Deprecation, Sunset, and Link headers signalling clients to migrate. v2 returns a richer nested response shape."
+      Method      = "GET"
+      Url         = "/api/v1/demo/version/greet"
+      SourceCode  =
+    """// Demos/ApiVersionDemo.fs
+    let v1 : HttpHandler =
+        setHttpHeader "Deprecation" "true"
+        >=> setHttpHeader "Sunset" "Sat, 01 Jan 2026 00:00:00 GMT"
+        >=> setHttpHeader "Link" "</api/v2/demo/version/greet>; rel=\"successor-version\""
+        >=> json {| greeting = "Hello from v1!"; user = "World"; version = 1 |}
+
+    let v2 : HttpHandler =
+        json {|
+            message = {| text = "Hello from v2!"; locale = "en-US"; format = "informal" |}
+            user    = {| id = 42; name = "World" |}
+            meta    = {| version = 2; releaseDate = "2025-06-01"; deprecated = false |}
+        |}""" }
+
+    { Slug        = "bulk-operations"
+      Name        = "Bulk Operations (207)"
+      Description = "POST an array of items for batch import. The server validates each item independently and returns 207 Multi-Status when there is a mix of successes and failures."
+      Method      = "POST"
+      Url         = "/api/demo/bulk/items"
+      SourceCode  =
+    """// Demos/BulkDemo.fs
+    let bulkImport : HttpHandler = fun next ctx -> task {
+        let! body  = ctx.ReadBodyFromRequestAsync()
+        let  items = JsonSerializer.Deserialize<BulkItem[]>(body, opts)
+        let results =
+            items |> Array.mapi (fun i item ->
+                let errs = [
+                    if String.IsNullOrWhiteSpace item.name then "name is required"
+                    if item.value < 0.0 then "value must be ≥ 0"
+                ]
+                {| index = i; id = item.id; status = if errs.IsEmpty then 201 else 422
+                   ok = errs.IsEmpty; errors = errs |})
+        let nOk = results |> Array.sumBy (fun r -> if r.ok then 1 else 0)
+        let nErr = results |> Array.sumBy (fun r -> if r.ok then 0 else 1)
+        let code = if nOk > 0 && nErr > 0 then 207 elif nErr > 0 then 422 else 201
+        return! (setStatusCode code >=> json {| results = results; summary = {| created = nOk; failed = nErr |} |}) next ctx
+    }""" }
+
+    { Slug        = "soft-delete"
+      Name        = "Soft Delete & Restore"
+      Description = "DELETE marks a record as deleted (sets deletedAt) without removing it from the database. A restore endpoint reverses this. List queries accept ?includeDeleted=true."
+      Method      = "GET"
+      Url         = "/api/demo/softdelete/items"
+      SourceCode  =
+    """// Demos/SoftDeleteDemo.fs
+    let delete (id: int) : HttpHandler = fun next ctx ->
+        match store.TryGetValue id with
+        | false, _ ->
+            (setStatusCode 404 >=> json {| error = "Not found" |}) next ctx
+        | true, item when item.deletedAt.IsSome ->
+            (setStatusCode 409 >=> json {| error = "Already deleted" |}) next ctx
+        | true, item ->
+            store.[id] <- { item with deletedAt = Some DateTime.UtcNow }
+            json (toDto store.[id]) next ctx
+
+    let restore (id: int) : HttpHandler = fun next ctx ->
+        match store.TryGetValue id with
+        | true, item when item.deletedAt.IsNone ->
+            (setStatusCode 409 >=> json {| error = "Not deleted" |}) next ctx
+        | true, item ->
+            store.[id] <- { item with deletedAt = None }
+            json (toDto store.[id]) next ctx""" }
+
+    { Slug        = "circuit-breaker"
+      Name        = "Circuit Breaker"
+      Description = "State machine that tracks upstream call failures. After 3 consecutive failures the circuit Opens (calls blocked). After 10 s it moves to HalfOpen (probe allowed). 2 successes reclose it."
+      Method      = "GET"
+      Url         = "/api/demo/circuitbreaker/call"
+      SourceCode  =
+    """// Demos/CircuitBreakerDemo.fs
+    // States: Closed | Open | HalfOpen
+    // failThreshold = 3, passThreshold = 2, openDuration = 10s
+
+    let call : HttpHandler = fun next ctx ->
+        let failRate = ... // ?failRate query param, default 0.5
+        totalCalls <- totalCalls + 1
+        if cbState = Open && DateTime.UtcNow - lastOpened > openDuration then
+            cbState <- HalfOpen; successes <- 0
+
+        match cbState with
+        | Open ->
+            (setStatusCode 503 >=> json {| state = "Open"; message = "Circuit OPEN" |}) next ctx
+        | Closed | HalfOpen ->
+            let failed = Random.Shared.NextDouble() < failRate
+            if failed then
+                failures <- failures + 1
+                if cbState = HalfOpen || failures >= failThreshold then
+                    cbState <- Open; lastOpened <- DateTime.UtcNow
+                (setStatusCode 503 >=> json {| state = stateStr(); message = "Upstream failed" |}) next ctx
+            else
+                successes <- successes + 1
+                if cbState = HalfOpen && successes >= passThreshold then
+                    cbState <- Closed
+                (setStatusCode 200 >=> json {| state = stateStr(); message = "Upstream succeeded" |}) next ctx""" }
 ]
 
 let private crudApiPage (demo: BackendDemoMeta) (model: Model) (dispatch: Msg -> unit) =
@@ -3601,6 +4555,1233 @@ let private ssePage (demo: BackendDemoMeta) (model: Model) (dispatch: Msg -> uni
         ]
     ]
 
+// ── Response Caching page ─────────────────────────────────────────────────────
+
+let private cachingPage (demo: BackendDemoMeta) (model: Model) (dispatch: Msg -> unit) =
+    let labelStyle   = Style [ FontFamily "'JetBrains Mono',monospace"; FontSize "0.65rem"; FontWeight "700"; CSSProp.Custom("text-transform","uppercase"); CSSProp.Custom("letter-spacing","0.08em"); Color "#6E6E76"; MarginBottom "0.5rem" ]
+    let codePreStyle = Style [ Margin "0"; FontFamily "'JetBrains Mono',monospace"; FontSize "0.8rem"; Color "#E8E8ED"; LineHeight "1.7"; CSSProp.Custom("white-space","pre-wrap"); CSSProp.Custom("word-break","break-all") ]
+    let panelStyle   = Style [ Background "#0D0D0F"; Border "1px solid #2A2A2E"; BorderRadius "8px"; Padding "1.125rem 1.375rem"; CSSProp.Custom("overflow","auto") ]
+    let cardStyle    = Style [ Background "#161618"; Border "1px solid #2A2A2E"; BorderRadius "10px"; Padding "1.25rem 1.5rem"; MarginBottom "1.25rem" ]
+
+    let cacheState   = model.BackendResults |> Map.tryFind "cache"        |> Option.defaultValue Idle
+    let mutateState  = model.BackendResults |> Map.tryFind "cache-mutate" |> Option.defaultValue Idle
+    let loading      = cacheState = Fetching
+    let mutating     = mutateState = Fetching
+    let statusVariant code = if code = 304 then "info" elif code >= 200 && code < 300 then "success" elif code >= 400 then "danger" else "info"
+
+    div [ ClassName "comp-page" ] [
+        div [ ClassName "comp-header" ] [
+            div [ ClassName "comp-header-row" ] [
+                h1 [ ClassName "comp-name" ] [ str demo.Name ]
+                wc "fui-badge" [ "variant", "accent" ] [ str "Backend" ]
+            ]
+            p [ Style [ FontFamily "'Sora',sans-serif"; Color "#6E6E76"; Margin "0" ] ] [ str demo.Description ]
+        ]
+
+        // ── Controls ───────────────────────────────────────────────────────────
+        div [ cardStyle ] [
+            p [ labelStyle ] [ str "Actions" ]
+            div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("gap","0.625rem"); CSSProp.Custom("flex-wrap","wrap"); CSSProp.Custom("align-items","center") ] ] [
+                domEl "fui-button" [
+                    HTMLAttr.Custom("variant", box "primary")
+                    HTMLAttr.Custom("size", box "sm")
+                    if loading then HTMLAttr.Custom("disabled", box "")
+                    OnClick (fun _ -> dispatch (CacheFetch false))
+                ] [ str "Fetch Fresh" ]
+                domEl "fui-button" [
+                    HTMLAttr.Custom("variant", box "secondary")
+                    HTMLAttr.Custom("size", box "sm")
+                    if loading || model.CacheEtag = "" then HTMLAttr.Custom("disabled", box "")
+                    OnClick (fun _ -> dispatch (CacheFetch true))
+                ] [ str "Fetch with ETag" ]
+                domEl "fui-button" [
+                    HTMLAttr.Custom("variant", box "warning")
+                    HTMLAttr.Custom("size", box "sm")
+                    if mutating then HTMLAttr.Custom("disabled", box "")
+                    OnClick (fun _ -> dispatch CacheMutate)
+                ] [ str (if mutating then "Mutating…" else "Mutate Resource") ]
+                if model.CacheEtag <> "" then
+                    span [ Style [ FontFamily "'JetBrains Mono',monospace"; FontSize "0.75rem"; Color "#7C3AED" ] ] [
+                        str $"Stored ETag: {model.CacheEtag}"
+                    ]
+            ]
+        ]
+
+        // ── Response ───────────────────────────────────────────────────────────
+        div [ cardStyle ] [
+            p [ labelStyle ] [ str "Response" ]
+            match cacheState with
+            | Idle ->
+                wc "fui-empty-state"
+                    [ "title", "No request yet"
+                      "description", "Click Fetch Fresh to get the resource and its ETag." ] []
+            | Fetching ->
+                div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("justify-content","center"); Padding "1.5rem" ] ] [
+                    wc "fui-spinner" [ "label", "Fetching…" ] []
+                ]
+            | Failed err ->
+                wc "fui-alert" [ "variant", "danger"; "title", "Network error" ] [ str err ]
+            | Done(status, body) ->
+                div [] [
+                    div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("gap","0.5rem"); CSSProp.Custom("align-items","center"); MarginBottom "0.875rem" ] ] [
+                        wc "fui-badge" [ "variant", statusVariant status ] [ str $"HTTP {status}" ]
+                        if status = 304 then
+                            wc "fui-badge" [ "variant", "success" ] [ str "Zero bytes saved" ]
+                        else
+                            wc "fui-badge" [ "variant", "info" ] [ str "Full body returned" ]
+                    ]
+                    if body <> "" then
+                        div [ panelStyle ] [ pre [ codePreStyle ] [ str body ] ]
+                    else
+                        wc "fui-callout" [ "variant", "info"; "title", "304 Not Modified" ] [
+                            str "No body returned — client already has the current version."
+                        ]
+                ]
+        ]
+
+        // ── Mutate response ────────────────────────────────────────────────────
+        match mutateState with
+        | Done(_, body) ->
+            div [ cardStyle ] [
+                p [ labelStyle ] [ str "Mutation Result" ]
+                wc "fui-alert" [ "variant", "success"; "title", "Resource updated" ] [
+                    str "The server's value has changed. The stored ETag is now stale — your next conditional GET will receive 200."
+                ]
+                div [ panelStyle ] [ pre [ codePreStyle ] [ str body ] ]
+            ]
+        | _ -> nothing
+
+        // ── Source ─────────────────────────────────────────────────────────────
+        div [] [
+            p [ labelStyle ] [ str "Server source (F#)" ]
+            wc "fui-code-block" [ "language", "fsharp"; "code", demo.SourceCode ] []
+        ]
+    ]
+
+// ── Content Negotiation page ──────────────────────────────────────────────────
+
+let private contentNegPage (demo: BackendDemoMeta) (model: Model) (dispatch: Msg -> unit) =
+    let labelStyle   = Style [ FontFamily "'JetBrains Mono',monospace"; FontSize "0.65rem"; FontWeight "700"; CSSProp.Custom("text-transform","uppercase"); CSSProp.Custom("letter-spacing","0.08em"); Color "#6E6E76"; MarginBottom "0.5rem" ]
+    let codePreStyle = Style [ Margin "0"; FontFamily "'JetBrains Mono',monospace"; FontSize "0.8rem"; Color "#E8E8ED"; LineHeight "1.7"; CSSProp.Custom("white-space","pre-wrap"); CSSProp.Custom("word-break","break-all") ]
+    let panelStyle   = Style [ Background "#0D0D0F"; Border "1px solid #2A2A2E"; BorderRadius "8px"; Padding "1.125rem 1.375rem"; CSSProp.Custom("overflow","auto") ]
+    let cardStyle    = Style [ Background "#161618"; Border "1px solid #2A2A2E"; BorderRadius "10px"; Padding "1.25rem 1.5rem"; MarginBottom "1.25rem" ]
+    let selectStyle  = Style [ Background "#0D0D0F"; Border "1px solid #2A2A2E"; BorderRadius "6px"; Color "#E8E8ED"; FontFamily "'JetBrains Mono',monospace"; FontSize "0.8rem"; Padding "0.4rem 0.75rem" ]
+
+    let cnState  = model.BackendResults |> Map.tryFind "content-neg" |> Option.defaultValue Idle
+    let loading  = cnState = Fetching
+
+    let acceptOptions = [
+        "application/json", "JSON"
+        "text/csv",         "CSV"
+        "text/plain",       "Plain Text"
+    ]
+
+    div [ ClassName "comp-page" ] [
+        div [ ClassName "comp-header" ] [
+            div [ ClassName "comp-header-row" ] [
+                h1 [ ClassName "comp-name" ] [ str demo.Name ]
+                wc "fui-badge" [ "variant", "accent" ] [ str "Backend" ]
+            ]
+            p [ Style [ FontFamily "'Sora',sans-serif"; Color "#6E6E76"; Margin "0" ] ] [ str demo.Description ]
+        ]
+
+        // ── Request builder ────────────────────────────────────────────────────
+        div [ cardStyle ] [
+            p [ labelStyle ] [ str "Accept Header" ]
+            div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("gap","0.625rem"); CSSProp.Custom("align-items","center"); CSSProp.Custom("flex-wrap","wrap") ] ] [
+                domEl "select" [
+                    selectStyle
+                    OnChange (fun e -> dispatch (ContentNegSet (e.Value)))
+                ] [
+                    for accept, label in acceptOptions do
+                        yield domEl "option" [
+                            HTMLAttr.Value accept
+                            if accept = model.ContentNegAccept then HTMLAttr.Selected true
+                        ] [ str label ]
+                ]
+                domEl "fui-button" [
+                    HTMLAttr.Custom("variant", box "primary")
+                    HTMLAttr.Custom("size", box "sm")
+                    if loading then HTMLAttr.Custom("disabled", box "")
+                    OnClick (fun _ -> dispatch ContentNegFetch)
+                ] [ str (if loading then "Fetching…" else "Fetch") ]
+                span [ Style [ FontFamily "'JetBrains Mono',monospace"; FontSize "0.75rem"; Color "#6E6E76" ] ] [
+                    str $"Accept: {model.ContentNegAccept}"
+                ]
+            ]
+        ]
+
+        // ── Response ───────────────────────────────────────────────────────────
+        div [ cardStyle ] [
+            p [ labelStyle ] [ str "Response" ]
+            match cnState with
+            | Idle ->
+                wc "fui-empty-state"
+                    [ "title", "No request yet"
+                      "description", "Select a format and click Fetch." ] []
+            | Fetching ->
+                div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("justify-content","center"); Padding "1.5rem" ] ] [
+                    wc "fui-spinner" [ "label", "Fetching…" ] []
+                ]
+            | Failed err ->
+                wc "fui-alert" [ "variant", "danger"; "title", "Network error" ] [ str err ]
+            | Done(status, body) ->
+                div [] [
+                    div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("gap","0.5rem"); CSSProp.Custom("align-items","center"); MarginBottom "0.875rem" ] ] [
+                        wc "fui-badge" [ "variant", "success" ] [ str $"HTTP {status}" ]
+                        if model.ContentNegCt <> "" then
+                            wc "fui-badge" [ "variant", "info" ] [ str $"Content-Type: {model.ContentNegCt}" ]
+                    ]
+                    div [ panelStyle ] [ pre [ codePreStyle ] [ str body ] ]
+                ]
+        ]
+
+        // ── Source ─────────────────────────────────────────────────────────────
+        div [] [
+            p [ labelStyle ] [ str "Server source (F#)" ]
+            wc "fui-code-block" [ "language", "fsharp"; "code", demo.SourceCode ] []
+        ]
+    ]
+
+// ── Request Validation page ───────────────────────────────────────────────────
+
+[<Fable.Core.Emit("(function(s){try{return JSON.parse(s).valid===true}catch(_){return false}})($0)")>]
+let private parseValValid (body: string) : bool = jsNative
+
+[<Fable.Core.Emit("(function(s){try{var r=JSON.parse(s);return(r.errors||[]).map(function(e){return[e.field||'',e.message||'']})}catch(_){return[]}})($0)")>]
+let private parseValErrors (body: string) : string[][] = jsNative
+
+let private validationPage (demo: BackendDemoMeta) (model: Model) (dispatch: Msg -> unit) =
+    let labelStyle   = Style [ FontFamily "'JetBrains Mono',monospace"; FontSize "0.65rem"; FontWeight "700"; CSSProp.Custom("text-transform","uppercase"); CSSProp.Custom("letter-spacing","0.08em"); Color "#6E6E76"; MarginBottom "0.5rem" ]
+    let codePreStyle = Style [ Margin "0"; FontFamily "'JetBrains Mono',monospace"; FontSize "0.8rem"; Color "#E8E8ED"; LineHeight "1.7"; CSSProp.Custom("white-space","pre-wrap"); CSSProp.Custom("word-break","break-all") ]
+    let panelStyle   = Style [ Background "#0D0D0F"; Border "1px solid #2A2A2E"; BorderRadius "8px"; Padding "1.125rem 1.375rem"; CSSProp.Custom("overflow","auto") ]
+    let cardStyle    = Style [ Background "#161618"; Border "1px solid #2A2A2E"; BorderRadius "10px"; Padding "1.25rem 1.5rem"; MarginBottom "1.25rem" ]
+    let inputStyle   = Style [ Background "#0D0D0F"; Border "1px solid #2A2A2E"; BorderRadius "6px"; Color "#E8E8ED"; FontFamily "'JetBrains Mono',monospace"; FontSize "0.8rem"; Padding "0.45rem 0.75rem"; Width "100%"; CSSProp.Custom("box-sizing","border-box") ]
+    let rowStyle     = Style [ Display DisplayOptions.Flex; CSSProp.Custom("flex-direction","column"); CSSProp.Custom("gap","0.3rem"); MarginBottom "1rem" ]
+
+    let valState = model.BackendResults |> Map.tryFind "validation" |> Option.defaultValue Idle
+    let loading  = valState = Fetching
+    let f        = model.ValForm
+
+    div [ ClassName "comp-page" ] [
+        div [ ClassName "comp-header" ] [
+            div [ ClassName "comp-header-row" ] [
+                h1 [ ClassName "comp-name" ] [ str demo.Name ]
+                wc "fui-badge" [ "variant", "accent" ] [ str "Backend" ]
+            ]
+            p [ Style [ FontFamily "'Sora',sans-serif"; Color "#6E6E76"; Margin "0" ] ] [ str demo.Description ]
+        ]
+
+        // ── Form ───────────────────────────────────────────────────────────────
+        div [ cardStyle ] [
+            p [ labelStyle ] [ str "User Payload" ]
+            div [ rowStyle ] [
+                span [ Style [ FontFamily "'JetBrains Mono',monospace"; FontSize "0.72rem"; Color "#6E6E76" ] ] [ str "Name *" ]
+                domEl "input" [
+                    HTMLAttr.Type "text"
+                    HTMLAttr.Placeholder "Alice"
+                    HTMLAttr.Value f.ValName
+                    inputStyle
+                    OnChange (fun e -> dispatch (ValFormSet("name", e.Value)))
+                ] []
+            ]
+            div [ rowStyle ] [
+                span [ Style [ FontFamily "'JetBrains Mono',monospace"; FontSize "0.72rem"; Color "#6E6E76" ] ] [ str "Email *" ]
+                domEl "input" [
+                    HTMLAttr.Type "email"
+                    HTMLAttr.Placeholder "alice@example.com"
+                    HTMLAttr.Value f.ValEmail
+                    inputStyle
+                    OnChange (fun e -> dispatch (ValFormSet("email", e.Value)))
+                ] []
+            ]
+            div [ rowStyle ] [
+                span [ Style [ FontFamily "'JetBrains Mono',monospace"; FontSize "0.72rem"; Color "#6E6E76" ] ] [ str "Age (1–120) *" ]
+                domEl "input" [
+                    HTMLAttr.Type "number"
+                    HTMLAttr.Placeholder "30"
+                    HTMLAttr.Value f.ValAge
+                    inputStyle
+                    OnChange (fun e -> dispatch (ValFormSet("age", e.Value)))
+                ] []
+            ]
+            div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("gap","0.625rem") ] ] [
+                domEl "fui-button" [
+                    HTMLAttr.Custom("variant", box "primary")
+                    HTMLAttr.Custom("size", box "sm")
+                    if loading then HTMLAttr.Custom("disabled", box "")
+                    OnClick (fun _ -> dispatch ValSubmit)
+                ] [ str (if loading then "Submitting…" else "Submit") ]
+                domEl "fui-button" [
+                    HTMLAttr.Custom("variant", box "secondary")
+                    HTMLAttr.Custom("size", box "sm")
+                    OnClick (fun _ ->
+                        dispatch (ValFormSet("name", ""))
+                        dispatch (ValFormSet("email", ""))
+                        dispatch (ValFormSet("age", "")))
+                ] [ str "Reset" ]
+            ]
+        ]
+
+        // ── Response ───────────────────────────────────────────────────────────
+        div [ cardStyle ] [
+            p [ labelStyle ] [ str "Server Response" ]
+            match valState with
+            | Idle ->
+                wc "fui-empty-state"
+                    [ "title", "No request yet"
+                      "description", "Fill in the form and click Submit. Try invalid values to trigger 422." ] []
+            | Fetching ->
+                div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("justify-content","center"); Padding "1.5rem" ] ] [
+                    wc "fui-spinner" [ "label", "Submitting…" ] []
+                ]
+            | Failed err ->
+                wc "fui-alert" [ "variant", "danger"; "title", "Network error" ] [ str err ]
+            | Done(status, body) ->
+                let isValid  = parseValValid body
+                let errPairs = parseValErrors body |> Array.map (fun a -> a.[0], a.[1]) |> Array.toList
+                div [] [
+                    div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("gap","0.5rem"); CSSProp.Custom("align-items","center"); MarginBottom "0.875rem" ] ] [
+                        wc "fui-badge" [ "variant", (if isValid then "success" else "danger") ] [ str $"HTTP {status}" ]
+                        wc "fui-badge" [ "variant", (if isValid then "success" else "warning") ] [ str (if isValid then "Valid" else "Validation failed") ]
+                    ]
+                    if not errPairs.IsEmpty then
+                        div [ Style [ MarginBottom "0.875rem" ] ] [
+                            for field, msg in errPairs do
+                                div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("gap","0.5rem"); CSSProp.Custom("align-items","center"); MarginBottom "0.35rem" ] ] [
+                                    wc "fui-badge" [ "variant", "danger" ] [ str field ]
+                                    span [ Style [ FontFamily "'Sora',sans-serif"; FontSize "0.8rem"; Color "#EF4444" ] ] [ str msg ]
+                                ]
+                        ]
+                    div [ panelStyle ] [ pre [ codePreStyle ] [ str body ] ]
+                ]
+        ]
+
+        // ── Source ─────────────────────────────────────────────────────────────
+        div [] [
+            p [ labelStyle ] [ str "Server source (F#)" ]
+            wc "fui-code-block" [ "language", "fsharp"; "code", demo.SourceCode ] []
+        ]
+    ]
+
+// ── API Key Auth page ─────────────────────────────────────────────────────────
+
+let private apiKeyPage (demo: BackendDemoMeta) (model: Model) (dispatch: Msg -> unit) =
+    let labelStyle   = Style [ FontFamily "'JetBrains Mono',monospace"; FontSize "0.65rem"; FontWeight "700"; CSSProp.Custom("text-transform","uppercase"); CSSProp.Custom("letter-spacing","0.08em"); Color "#6E6E76"; MarginBottom "0.5rem" ]
+    let codePreStyle = Style [ Margin "0"; FontFamily "'JetBrains Mono',monospace"; FontSize "0.8rem"; Color "#E8E8ED"; LineHeight "1.7"; CSSProp.Custom("white-space","pre-wrap"); CSSProp.Custom("word-break","break-all") ]
+    let panelStyle   = Style [ Background "#0D0D0F"; Border "1px solid #2A2A2E"; BorderRadius "8px"; Padding "1.125rem 1.375rem"; CSSProp.Custom("overflow","auto") ]
+    let cardStyle    = Style [ Background "#161618"; Border "1px solid #2A2A2E"; BorderRadius "10px"; Padding "1.25rem 1.5rem"; MarginBottom "1.25rem" ]
+    let inputStyle   = Style [ Background "#0D0D0F"; Border "1px solid #2A2A2E"; BorderRadius "6px"; Color "#E8E8ED"; FontFamily "'JetBrains Mono',monospace"; FontSize "0.8rem"; Padding "0.45rem 0.75rem"; MinWidth "22rem" ]
+
+    let akState = model.BackendResults |> Map.tryFind "apikey" |> Option.defaultValue Idle
+    let loading = akState = Fetching
+    let statusVariant code = if code >= 200 && code < 300 then "success" elif code >= 400 then "danger" else "info"
+
+    let presetKeys = [ "sk-demo-abc123"; "sk-demo-xyz789"; "sk-invalid-key"; "" ]
+
+    div [ ClassName "comp-page" ] [
+        div [ ClassName "comp-header" ] [
+            div [ ClassName "comp-header-row" ] [
+                h1 [ ClassName "comp-name" ] [ str demo.Name ]
+                wc "fui-badge" [ "variant", "accent" ] [ str "Backend" ]
+            ]
+            p [ Style [ FontFamily "'Sora',sans-serif"; Color "#6E6E76"; Margin "0" ] ] [ str demo.Description ]
+        ]
+
+        // ── Key picker ─────────────────────────────────────────────────────────
+        div [ cardStyle ] [
+            p [ labelStyle ] [ str "X-Api-Key Header" ]
+            div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("gap","0.625rem"); CSSProp.Custom("flex-wrap","wrap"); CSSProp.Custom("align-items","center") ] ] [
+                domEl "input" [
+                    HTMLAttr.Type "text"
+                    HTMLAttr.Placeholder "Enter API key…"
+                    HTMLAttr.Value model.ApiKey
+                    inputStyle
+                    OnChange (fun e -> dispatch (ApiKeySet e.Value))
+                ] []
+                domEl "fui-button" [
+                    HTMLAttr.Custom("variant", box "primary")
+                    HTMLAttr.Custom("size", box "sm")
+                    if loading then HTMLAttr.Custom("disabled", box "")
+                    OnClick (fun _ -> dispatch ApiKeyFetch)
+                ] [ str (if loading then "Fetching…" else "Fetch Resource") ]
+            ]
+            div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("gap","0.5rem"); CSSProp.Custom("flex-wrap","wrap"); MarginTop "0.75rem" ] ] [
+                span [ Style [ FontFamily "'JetBrains Mono',monospace"; FontSize "0.68rem"; Color "#6E6E76"; CSSProp.Custom("align-self","center") ] ] [ str "Quick pick:" ]
+                for k in presetKeys do
+                    domEl "fui-button" [
+                        HTMLAttr.Custom("variant", box "secondary")
+                        HTMLAttr.Custom("size", box "xs")
+                        OnClick (fun _ -> dispatch (ApiKeySet k))
+                    ] [ str (if k = "" then "(no key)" else k) ]
+            ]
+        ]
+
+        // ── Response ───────────────────────────────────────────────────────────
+        div [ cardStyle ] [
+            p [ labelStyle ] [ str "Response" ]
+            match akState with
+            | Idle ->
+                wc "fui-empty-state"
+                    [ "title", "No request yet"
+                      "description", "Try all four quick-pick keys to see 200, 401, and 403." ] []
+            | Fetching ->
+                div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("justify-content","center"); Padding "1.5rem" ] ] [
+                    wc "fui-spinner" [ "label", "Fetching…" ] []
+                ]
+            | Failed err ->
+                wc "fui-alert" [ "variant", "danger"; "title", "Network error" ] [ str err ]
+            | Done(status, body) ->
+                div [] [
+                    div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("gap","0.5rem"); CSSProp.Custom("align-items","center"); MarginBottom "0.875rem" ] ] [
+                        wc "fui-badge" [ "variant", statusVariant status ] [ str $"HTTP {status}" ]
+                        wc "fui-badge" [ "variant", "info" ] [ str (if status = 200 then "Authorised" elif status = 401 then "No key" else "Bad key") ]
+                    ]
+                    div [ panelStyle ] [ pre [ codePreStyle ] [ str body ] ]
+                ]
+        ]
+
+        div [] [
+            p [ labelStyle ] [ str "Server source (F#)" ]
+            wc "fui-code-block" [ "language", "fsharp"; "code", demo.SourceCode ] []
+        ]
+    ]
+
+// ── Streaming Download page ───────────────────────────────────────────────────
+
+let private streamingPage (demo: BackendDemoMeta) (model: Model) (dispatch: Msg -> unit) =
+    let labelStyle   = Style [ FontFamily "'JetBrains Mono',monospace"; FontSize "0.65rem"; FontWeight "700"; CSSProp.Custom("text-transform","uppercase"); CSSProp.Custom("letter-spacing","0.08em"); Color "#6E6E76"; MarginBottom "0.5rem" ]
+    let codePreStyle = Style [ Margin "0"; FontFamily "'JetBrains Mono',monospace"; FontSize "0.8rem"; Color "#E8E8ED"; LineHeight "1.7"; CSSProp.Custom("white-space","pre-wrap") ]
+    let panelStyle   = Style [ Background "#0D0D0F"; Border "1px solid #2A2A2E"; BorderRadius "8px"; Padding "1.125rem 1.375rem"; MaxHeight "18rem"; CSSProp.Custom("overflow","auto") ]
+    let cardStyle    = Style [ Background "#161618"; Border "1px solid #2A2A2E"; BorderRadius "10px"; Padding "1.25rem 1.5rem"; MarginBottom "1.25rem" ]
+
+    let rowCount =
+        if model.StreamBuffer = "" then 0
+        else model.StreamBuffer.Split('\n') |> Array.filter (fun l -> l.Trim() <> "" && not (l.StartsWith("row,"))) |> Array.length
+
+    div [ ClassName "comp-page" ] [
+        div [ ClassName "comp-header" ] [
+            div [ ClassName "comp-header-row" ] [
+                h1 [ ClassName "comp-name" ] [ str demo.Name ]
+                wc "fui-badge" [ "variant", "accent" ] [ str "Backend" ]
+            ]
+            p [ Style [ FontFamily "'Sora',sans-serif"; Color "#6E6E76"; Margin "0" ] ] [ str demo.Description ]
+        ]
+
+        // ── Controls ───────────────────────────────────────────────────────────
+        div [ cardStyle ] [
+            p [ labelStyle ] [ str "Stream Control" ]
+            div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("gap","0.625rem"); CSSProp.Custom("align-items","center"); CSSProp.Custom("flex-wrap","wrap") ] ] [
+                domEl "fui-button" [
+                    HTMLAttr.Custom("variant", box "primary")
+                    HTMLAttr.Custom("size", box "sm")
+                    if model.StreamActive then HTMLAttr.Custom("disabled", box "")
+                    OnClick (fun _ -> dispatch StreamStart)
+                ] [ str (if model.StreamActive then "Streaming…" else "Start Stream") ]
+                if model.StreamBuffer <> "" && not model.StreamActive then
+                    domEl "fui-button" [
+                        HTMLAttr.Custom("variant", box "secondary")
+                        HTMLAttr.Custom("size", box "sm")
+                        OnClick (fun _ -> dispatch StreamClear)
+                    ] [ str "Clear" ]
+                if model.StreamActive then
+                    wc "fui-spinner" [ "size", "sm" ] []
+                span [ Style [ FontFamily "'JetBrains Mono',monospace"; FontSize "0.75rem"; Color "#6E6E76" ] ] [
+                    str "20 rows · 150 ms apart · ~3 s total"
+                ]
+            ]
+        ]
+
+        // ── Live buffer ────────────────────────────────────────────────────────
+        div [ cardStyle ] [
+            div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("align-items","center"); CSSProp.Custom("justify-content","space-between"); MarginBottom "0.875rem" ] ] [
+                p [ labelStyle ] [ str $"Received Buffer ({rowCount} rows)" ]
+                if model.StreamBuffer <> "" then
+                    div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("gap","0.5rem") ] ] [
+                        wc "fui-badge" [ "variant", "info" ] [ str $"{model.StreamBuffer.Length} bytes" ]
+                        if model.StreamActive then
+                            wc "fui-badge" [ "variant", "warning" ] [ str "live" ]
+                        else
+                            wc "fui-badge" [ "variant", "success" ] [ str "complete" ]
+                    ]
+            ]
+            if model.StreamBuffer = "" then
+                wc "fui-empty-state"
+                    [ "title", "No data yet"
+                      "description", "Click Start Stream. Data will appear here as chunks arrive." ] []
+            else
+                div [ panelStyle ] [
+                    pre [ codePreStyle ] [ str model.StreamBuffer ]
+                ]
+        ]
+
+        div [] [
+            p [ labelStyle ] [ str "Server source (F#)" ]
+            wc "fui-code-block" [ "language", "fsharp"; "code", demo.SourceCode ] []
+        ]
+    ]
+
+// ── Idempotency Keys page ─────────────────────────────────────────────────────
+
+let private idempotencyPage (demo: BackendDemoMeta) (model: Model) (dispatch: Msg -> unit) =
+    let labelStyle   = Style [ FontFamily "'JetBrains Mono',monospace"; FontSize "0.65rem"; FontWeight "700"; CSSProp.Custom("text-transform","uppercase"); CSSProp.Custom("letter-spacing","0.08em"); Color "#6E6E76"; MarginBottom "0.5rem" ]
+    let codePreStyle = Style [ Margin "0"; FontFamily "'JetBrains Mono',monospace"; FontSize "0.8rem"; Color "#E8E8ED"; LineHeight "1.7"; CSSProp.Custom("white-space","pre-wrap"); CSSProp.Custom("word-break","break-all") ]
+    let panelStyle   = Style [ Background "#0D0D0F"; Border "1px solid #2A2A2E"; BorderRadius "8px"; Padding "0.875rem 1.125rem"; CSSProp.Custom("overflow","auto") ]
+    let cardStyle    = Style [ Background "#161618"; Border "1px solid #2A2A2E"; BorderRadius "10px"; Padding "1.25rem 1.5rem"; MarginBottom "1.25rem" ]
+    let inputStyle   = Style [ Background "#0D0D0F"; Border "1px solid #2A2A2E"; BorderRadius "6px"; Color "#E8E8ED"; FontFamily "'JetBrains Mono',monospace"; FontSize "0.8rem"; Padding "0.45rem 0.75rem"; MinWidth "22rem" ]
+
+    let idState  = model.BackendResults |> Map.tryFind "idemp" |> Option.defaultValue Idle
+    let loading  = idState = Fetching
+
+    div [ ClassName "comp-page" ] [
+        div [ ClassName "comp-header" ] [
+            div [ ClassName "comp-header-row" ] [
+                h1 [ ClassName "comp-name" ] [ str demo.Name ]
+                wc "fui-badge" [ "variant", "accent" ] [ str "Backend" ]
+            ]
+            p [ Style [ FontFamily "'Sora',sans-serif"; Color "#6E6E76"; Margin "0" ] ] [ str demo.Description ]
+        ]
+
+        // ── Key input ──────────────────────────────────────────────────────────
+        div [ cardStyle ] [
+            p [ labelStyle ] [ str "Idempotency Key" ]
+            div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("gap","0.625rem"); CSSProp.Custom("flex-wrap","wrap"); CSSProp.Custom("align-items","center") ] ] [
+                domEl "input" [
+                    HTMLAttr.Type "text"
+                    HTMLAttr.Placeholder "Generate a key first…"
+                    HTMLAttr.Value model.IdempKey
+                    inputStyle
+                    OnChange (fun e -> dispatch (IdempKeySet e.Value))
+                ] []
+                domEl "fui-button" [
+                    HTMLAttr.Custom("variant", box "secondary")
+                    HTMLAttr.Custom("size", box "sm")
+                    OnClick (fun _ -> dispatch IdempKeyGen)
+                ] [ str "Generate Key" ]
+            ]
+            div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("gap","0.625rem"); MarginTop "1rem" ] ] [
+                domEl "fui-button" [
+                    HTMLAttr.Custom("variant", box "primary")
+                    HTMLAttr.Custom("size", box "sm")
+                    if loading || model.IdempKey = "" then HTMLAttr.Custom("disabled", box "")
+                    OnClick (fun _ -> dispatch IdempSubmit)
+                ] [ str (if loading then "Submitting…" else "Place Order") ]
+                if not model.IdempLog.IsEmpty then
+                    domEl "fui-button" [
+                        HTMLAttr.Custom("variant", box "danger")
+                        HTMLAttr.Custom("size", box "sm")
+                        OnClick (fun _ -> dispatch IdempLogClear)
+                    ] [ str "Reset" ]
+            ]
+            p [ Style [ FontFamily "'Sora',sans-serif"; FontSize "0.78rem"; Color "#6E6E76"; MarginTop "0.75rem"; Margin "0.75rem 0 0" ] ] [
+                str "Generate a key then click Place Order multiple times. The second and subsequent calls return the "
+                span [ Style [ Color "#7C3AED"; FontFamily "'JetBrains Mono',monospace"; FontSize "0.78rem" ] ] [ str "same order" ]
+                str " — no duplicate charges."
+            ]
+        ]
+
+        // ── Request log ────────────────────────────────────────────────────────
+        div [ cardStyle ] [
+            p [ labelStyle ] [ str $"Request Log ({model.IdempLog.Length} requests)" ]
+            if model.IdempLog.IsEmpty then
+                wc "fui-empty-state"
+                    [ "title", "No requests yet"
+                      "description", "Generate a key and place an order. Then place it again — you'll see the replay." ] []
+            else
+                div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("flex-direction","column"); CSSProp.Custom("gap","0.625rem") ] ] [
+                    for (i, (status, replayed, body)) in model.IdempLog |> List.rev |> List.mapi (fun i x -> i + 1, x) do
+                        div [ Style [ Background "#0D0D0F"; Border "1px solid #2A2A2E"; BorderRadius "8px"; Padding "0.75rem 1rem" ] ] [
+                            div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("gap","0.5rem"); CSSProp.Custom("align-items","center"); MarginBottom "0.5rem" ] ] [
+                                wc "fui-badge" [ "variant", "info" ] [ str $"#{i}" ]
+                                wc "fui-badge" [ "variant", (if status = 201 then "success" else "info") ] [ str $"HTTP {status}" ]
+                                if replayed then
+                                    wc "fui-badge" [ "variant", "warning" ] [ str "↩ REPLAYED" ]
+                                else
+                                    wc "fui-badge" [ "variant", "success" ] [ str "NEW" ]
+                            ]
+                            pre [ codePreStyle ] [ str body ]
+                        ]
+                ]
+        ]
+
+        div [] [
+            p [ labelStyle ] [ str "Server source (F#)" ]
+            wc "fui-code-block" [ "language", "fsharp"; "code", demo.SourceCode ] []
+        ]
+    ]
+
+// ── Correlation ID page ───────────────────────────────────────────────────────
+
+let private corrPage (demo: BackendDemoMeta) (model: Model) (dispatch: Msg -> unit) =
+    let labelStyle   = Style [ FontFamily "'JetBrains Mono',monospace"; FontSize "0.65rem"; FontWeight "700"; CSSProp.Custom("text-transform","uppercase"); CSSProp.Custom("letter-spacing","0.08em"); Color "#6E6E76"; MarginBottom "0.5rem" ]
+    let codePreStyle = Style [ Margin "0"; FontFamily "'JetBrains Mono',monospace"; FontSize "0.8rem"; Color "#E8E8ED"; LineHeight "1.7"; CSSProp.Custom("white-space","pre-wrap"); CSSProp.Custom("word-break","break-all") ]
+    let panelStyle   = Style [ Background "#0D0D0F"; Border "1px solid #2A2A2E"; BorderRadius "8px"; Padding "0.875rem 1.125rem"; CSSProp.Custom("overflow","auto") ]
+    let cardStyle    = Style [ Background "#161618"; Border "1px solid #2A2A2E"; BorderRadius "10px"; Padding "1.25rem 1.5rem"; MarginBottom "1.25rem" ]
+
+    let loading = model.BackendResults |> Map.tryFind "corr" |> Option.map ((=) Fetching) |> Option.defaultValue false
+
+    div [ ClassName "comp-page" ] [
+        div [ ClassName "comp-header" ] [
+            div [ ClassName "comp-header-row" ] [
+                h1 [ ClassName "comp-name" ] [ str demo.Name ]
+                wc "fui-badge" [ "variant", "accent" ] [ str "Backend" ]
+            ]
+            p [ Style [ FontFamily "'Sora',sans-serif"; Color "#6E6E76"; Margin "0" ] ] [ str demo.Description ]
+        ]
+
+        div [ cardStyle ] [
+            p [ labelStyle ] [ str "Ping" ]
+            div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("gap","0.625rem"); CSSProp.Custom("flex-wrap","wrap") ] ] [
+                domEl "fui-button" [
+                    HTMLAttr.Custom("variant", box "primary"); HTMLAttr.Custom("size", box "sm")
+                    if loading then HTMLAttr.Custom("disabled", box "")
+                    OnClick (fun _ -> dispatch (CorrPing false))
+                ] [ str "Ping (server generates ID)" ]
+                domEl "fui-button" [
+                    HTMLAttr.Custom("variant", box "secondary"); HTMLAttr.Custom("size", box "sm")
+                    if loading then HTMLAttr.Custom("disabled", box "")
+                    OnClick (fun _ -> dispatch (CorrPing true))
+                ] [ str "Ping (client sends ID)" ]
+                if not model.CorrLog.IsEmpty then
+                    domEl "fui-button" [
+                        HTMLAttr.Custom("variant", box "ghost"); HTMLAttr.Custom("size", box "sm")
+                        OnClick (fun _ -> dispatch CorrLogClear)
+                    ] [ str "Clear" ]
+            ]
+        ]
+
+        div [ cardStyle ] [
+            p [ labelStyle ] [ str $"Request Log ({model.CorrLog.Length} pings)" ]
+            if model.CorrLog.IsEmpty then
+                wc "fui-empty-state" [ "title", "No pings yet"; "description", "Each ping shows X-Request-ID propagated across all downstream services." ] []
+            else
+                div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("flex-direction","column"); CSSProp.Custom("gap","0.625rem") ] ] [
+                    for (i, (reqId, rt, body)) in model.CorrLog |> List.mapi (fun i x -> i, x) do
+                        div [ Style [ Background "#0D0D0F"; Border "1px solid #2A2A2E"; BorderRadius "8px"; Padding "0.75rem 1rem" ] ] [
+                            div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("gap","0.5rem"); CSSProp.Custom("align-items","center"); MarginBottom "0.5rem"; CSSProp.Custom("flex-wrap","wrap") ] ] [
+                                wc "fui-badge" [ "variant", "info"    ] [ str $"#{model.CorrLog.Length - i}" ]
+                                wc "fui-badge" [ "variant", "accent"  ] [ str reqId ]
+                                if rt <> "" then wc "fui-badge" [ "variant", "success" ] [ str rt ]
+                            ]
+                            pre [ codePreStyle ] [ str body ]
+                        ]
+                ]
+        ]
+
+        div [] [
+            p [ labelStyle ] [ str "Server source (F#)" ]
+            wc "fui-code-block" [ "language", "fsharp"; "code", demo.SourceCode ] []
+        ]
+    ]
+
+// ── Optimistic Concurrency page ───────────────────────────────────────────────
+
+let private optimisticPage (demo: BackendDemoMeta) (model: Model) (dispatch: Msg -> unit) =
+    let labelStyle   = Style [ FontFamily "'JetBrains Mono',monospace"; FontSize "0.65rem"; FontWeight "700"; CSSProp.Custom("text-transform","uppercase"); CSSProp.Custom("letter-spacing","0.08em"); Color "#6E6E76"; MarginBottom "0.5rem" ]
+    let codePreStyle = Style [ Margin "0"; FontFamily "'JetBrains Mono',monospace"; FontSize "0.8rem"; Color "#E8E8ED"; LineHeight "1.7"; CSSProp.Custom("white-space","pre-wrap"); CSSProp.Custom("word-break","break-all") ]
+    let panelStyle   = Style [ Background "#0D0D0F"; Border "1px solid #2A2A2E"; BorderRadius "8px"; Padding "0.875rem 1.125rem"; CSSProp.Custom("overflow","auto") ]
+    let cardStyle    = Style [ Background "#161618"; Border "1px solid #2A2A2E"; BorderRadius "10px"; Padding "1.25rem 1.5rem"; MarginBottom "1.25rem" ]
+    let inputStyle   = Style [ Background "#0D0D0F"; Border "1px solid #2A2A2E"; BorderRadius "6px"; Color "#E8E8ED"; FontFamily "'JetBrains Mono',monospace"; FontSize "0.8rem"; Padding "0.45rem 0.75rem"; Width "100%"; CSSProp.Custom("box-sizing","border-box") ]
+
+    let optState   = model.BackendResults |> Map.tryFind "opt"       |> Option.defaultValue Idle
+    let forceState = model.BackendResults |> Map.tryFind "opt-force" |> Option.defaultValue Idle
+    let loading    = optState = Fetching
+    let statusVariant code = if code >= 200 && code < 300 then "success" elif code >= 400 then "danger" else "info"
+
+    div [ ClassName "comp-page" ] [
+        div [ ClassName "comp-header" ] [
+            div [ ClassName "comp-header-row" ] [
+                h1 [ ClassName "comp-name" ] [ str demo.Name ]
+                wc "fui-badge" [ "variant", "accent" ] [ str "Backend" ]
+            ]
+            p [ Style [ FontFamily "'Sora',sans-serif"; Color "#6E6E76"; Margin "0" ] ] [ str demo.Description ]
+        ]
+
+        // ── Fetch ──────────────────────────────────────────────────────────────
+        div [ cardStyle ] [
+            p [ labelStyle ] [ str "Step 1 — Fetch the document" ]
+            div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("gap","0.625rem"); CSSProp.Custom("flex-wrap","wrap"); CSSProp.Custom("align-items","center") ] ] [
+                domEl "fui-button" [
+                    HTMLAttr.Custom("variant", box "primary"); HTMLAttr.Custom("size", box "sm")
+                    if loading then HTMLAttr.Custom("disabled", box "")
+                    OnClick (fun _ -> dispatch OptFetch)
+                ] [ str "Fetch Document" ]
+                domEl "fui-button" [
+                    HTMLAttr.Custom("variant", box "warning"); HTMLAttr.Custom("size", box "sm")
+                    if model.OptEtag = "" then HTMLAttr.Custom("disabled", box "")
+                    OnClick (fun _ -> dispatch OptForceConflict)
+                ] [ str "Simulate Concurrent Edit" ]
+                if model.OptEtag <> "" then
+                    span [ Style [ FontFamily "'JetBrains Mono',monospace"; FontSize "0.75rem"; Color "#7C3AED" ] ] [ str $"ETag: {model.OptEtag}" ]
+            ]
+            if model.OptFetchedBody <> "" then
+                div [ Style [ MarginTop "0.75rem" ] ] [
+                    div [ panelStyle ] [ pre [ codePreStyle ] [ str model.OptFetchedBody ] ]
+                ]
+            match forceState with
+            | Done(_, forceBody) ->
+                wc "fui-callout" [ "variant", "warning"; "title", "Concurrent edit applied" ] [
+                    str "The document was modified by another client — your stored ETag is now stale. Try submitting an update below to see 412."
+                ]
+            | _ -> nothing
+        ]
+
+        // ── Edit form ──────────────────────────────────────────────────────────
+        div [ cardStyle ] [
+            p [ labelStyle ] [ str "Step 2 — Edit and submit" ]
+            div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("flex-direction","column"); CSSProp.Custom("gap","0.625rem") ] ] [
+                div [] [
+                    span [ Style [ FontFamily "'JetBrains Mono',monospace"; FontSize "0.72rem"; Color "#6E6E76" ] ] [ str "Content" ]
+                    domEl "input" [ HTMLAttr.Type "text"; HTMLAttr.Placeholder "New content…"; HTMLAttr.Value model.OptEditContent; inputStyle; OnChange (fun e -> dispatch (OptSet("content", e.Value))) ] []
+                ]
+                div [] [
+                    span [ Style [ FontFamily "'JetBrains Mono',monospace"; FontSize "0.72rem"; Color "#6E6E76" ] ] [ str "Author" ]
+                    domEl "input" [ HTMLAttr.Type "text"; HTMLAttr.Placeholder "your-name"; HTMLAttr.Value model.OptEditAuthor; inputStyle; OnChange (fun e -> dispatch (OptSet("author", e.Value))) ] []
+                ]
+                domEl "fui-button" [
+                    HTMLAttr.Custom("variant", box "primary"); HTMLAttr.Custom("size", box "sm")
+                    if loading || model.OptEtag = "" || model.OptEditContent = "" then HTMLAttr.Custom("disabled", box "")
+                    OnClick (fun _ -> dispatch OptUpdate)
+                ] [ str (if loading then "Submitting…" else "Submit Update (PUT with If-Match)") ]
+            ]
+        ]
+
+        // ── Response ───────────────────────────────────────────────────────────
+        div [ cardStyle ] [
+            p [ labelStyle ] [ str "Response" ]
+            match optState with
+            | Idle -> wc "fui-empty-state" [ "title", "No request yet"; "description", "Fetch the doc, optionally simulate a conflict, then submit an update." ] []
+            | Fetching -> div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("justify-content","center"); Padding "1.5rem" ] ] [ wc "fui-spinner" [ "label", "…" ] [] ]
+            | Failed err -> wc "fui-alert" [ "variant", "danger"; "title", "Network error" ] [ str err ]
+            | Done(status, body) ->
+                div [] [
+                    div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("gap","0.5rem"); CSSProp.Custom("align-items","center"); MarginBottom "0.875rem" ] ] [
+                        wc "fui-badge" [ "variant", statusVariant status ] [ str $"HTTP {status}" ]
+                        wc "fui-badge" [ "variant", (if status = 200 then "success" elif status = 412 then "danger" else "warning") ] [
+                            str (match status with 200 -> "Updated" | 412 -> "Precondition Failed" | 428 -> "Precondition Required" | _ -> string status)
+                        ]
+                    ]
+                    div [ panelStyle ] [ pre [ codePreStyle ] [ str body ] ]
+                ]
+        ]
+
+        div [] [
+            p [ labelStyle ] [ str "Server source (F#)" ]
+            wc "fui-code-block" [ "language", "fsharp"; "code", demo.SourceCode ] []
+        ]
+    ]
+
+// ── Long Polling page ─────────────────────────────────────────────────────────
+
+let private longPollPage (demo: BackendDemoMeta) (model: Model) (dispatch: Msg -> unit) =
+    let labelStyle   = Style [ FontFamily "'JetBrains Mono',monospace"; FontSize "0.65rem"; FontWeight "700"; CSSProp.Custom("text-transform","uppercase"); CSSProp.Custom("letter-spacing","0.08em"); Color "#6E6E76"; MarginBottom "0.5rem" ]
+    let codePreStyle = Style [ Margin "0"; FontFamily "'JetBrains Mono',monospace"; FontSize "0.8rem"; Color "#E8E8ED"; LineHeight "1.7"; CSSProp.Custom("white-space","pre-wrap"); CSSProp.Custom("word-break","break-all") ]
+    let cardStyle    = Style [ Background "#161618"; Border "1px solid #2A2A2E"; BorderRadius "10px"; Padding "1.25rem 1.5rem"; MarginBottom "1.25rem" ]
+    let inputStyle   = Style [ Background "#0D0D0F"; Border "1px solid #2A2A2E"; BorderRadius "6px"; Color "#E8E8ED"; FontFamily "'JetBrains Mono',monospace"; FontSize "0.8rem"; Padding "0.45rem 0.75rem"; MinWidth "18rem" ]
+
+    div [ ClassName "comp-page" ] [
+        div [ ClassName "comp-header" ] [
+            div [ ClassName "comp-header-row" ] [
+                h1 [ ClassName "comp-name" ] [ str demo.Name ]
+                wc "fui-badge" [ "variant", "accent" ] [ str "Backend" ]
+            ]
+            p [ Style [ FontFamily "'Sora',sans-serif"; Color "#6E6E76"; Margin "0" ] ] [ str demo.Description ]
+        ]
+
+        // ── Polling control ────────────────────────────────────────────────────
+        div [ cardStyle ] [
+            p [ labelStyle ] [ str "Poll Control" ]
+            div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("gap","0.625rem"); CSSProp.Custom("align-items","center"); CSSProp.Custom("flex-wrap","wrap") ] ] [
+                if model.LPActive then
+                    domEl "fui-button" [
+                        HTMLAttr.Custom("variant", box "danger"); HTMLAttr.Custom("size", box "sm")
+                        OnClick (fun _ -> dispatch LPStop)
+                    ] [ str "Stop Polling" ]
+                    wc "fui-spinner" [ "size", "sm" ] []
+                    span [ Style [ FontFamily "'JetBrains Mono',monospace"; FontSize "0.75rem"; Color "#7C3AED" ] ] [ str "Waiting for next event…" ]
+                else
+                    domEl "fui-button" [
+                        HTMLAttr.Custom("variant", box "primary"); HTMLAttr.Custom("size", box "sm")
+                        OnClick (fun _ -> dispatch LPStart)
+                    ] [ str "Start Polling" ]
+                if not model.LPLog.IsEmpty then
+                    domEl "fui-button" [
+                        HTMLAttr.Custom("variant", box "ghost"); HTMLAttr.Custom("size", box "sm")
+                        OnClick (fun _ -> dispatch LPLogClear)
+                    ] [ str "Clear" ]
+                wc "fui-badge" [ "variant", "info" ] [ str $"Last event #{model.LPEventId}" ]
+            ]
+        ]
+
+        // ── Publish ────────────────────────────────────────────────────────────
+        div [ cardStyle ] [
+            p [ labelStyle ] [ str "Publish Event" ]
+            div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("gap","0.625rem"); CSSProp.Custom("align-items","center"); CSSProp.Custom("flex-wrap","wrap") ] ] [
+                domEl "input" [
+                    HTMLAttr.Type "text"
+                    HTMLAttr.Placeholder "Type a message…"
+                    HTMLAttr.Value model.LPInput
+                    inputStyle
+                    OnChange (fun e -> dispatch (LPPublishSet e.Value))
+                    OnKeyUp  (fun e -> if eventKey e = "Enter" then dispatch LPPublish)
+                ] []
+                domEl "fui-button" [
+                    HTMLAttr.Custom("variant", box "secondary"); HTMLAttr.Custom("size", box "sm")
+                    if model.LPInput.Trim() = "" then HTMLAttr.Custom("disabled", box "")
+                    OnClick (fun _ -> dispatch LPPublish)
+                ] [ str "Publish" ]
+            ]
+            p [ Style [ FontFamily "'Sora',sans-serif"; FontSize "0.78rem"; Color "#6E6E76"; MarginTop "0.625rem"; Margin "0.625rem 0 0" ] ] [
+                str "While the client is polling, publishing an event wakes the waiting request immediately — no polling interval delay."
+            ]
+        ]
+
+        // ── Event log ──────────────────────────────────────────────────────────
+        div [ cardStyle ] [
+            p [ labelStyle ] [ str $"Event Log ({model.LPLog.Length} events)" ]
+            if model.LPLog.IsEmpty then
+                wc "fui-empty-state" [ "title", "No events yet"; "description", "Start polling, then publish a message from the panel above." ] []
+            else
+                div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("flex-direction","column"); CSSProp.Custom("gap","0.35rem") ] ] [
+                    for (i, entry) in model.LPLog |> List.mapi (fun i x -> i, x) do
+                        div [ Style [ Background "#0D0D0F"; Border "1px solid #2A2A2E"; BorderRadius "6px"; Padding "0.5rem 0.875rem"; Display DisplayOptions.Flex; CSSProp.Custom("align-items","center"); CSSProp.Custom("gap","0.5rem") ] ] [
+                            wc "fui-badge" [ "variant", "success" ] [ str $"#{model.LPLog.Length - i}" ]
+                            span [ Style [ FontFamily "'JetBrains Mono',monospace"; FontSize "0.8rem"; Color "#E8E8ED" ] ] [ str entry ]
+                        ]
+                ]
+        ]
+
+        div [] [
+            p [ labelStyle ] [ str "Server source (F#)" ]
+            wc "fui-code-block" [ "language", "fsharp"; "code", demo.SourceCode ] []
+        ]
+    ]
+
+// ── Retry with Backoff page ───────────────────────────────────────────────────
+
+let private retryPage (demo: BackendDemoMeta) (model: Model) (dispatch: Msg -> unit) =
+    let labelStyle   = Style [ FontFamily "'JetBrains Mono',monospace"; FontSize "0.65rem"; FontWeight "700"; CSSProp.Custom("text-transform","uppercase"); CSSProp.Custom("letter-spacing","0.08em"); Color "#6E6E76"; MarginBottom "0.5rem" ]
+    let codePreStyle = Style [ Margin "0"; FontFamily "'JetBrains Mono',monospace"; FontSize "0.8rem"; Color "#E8E8ED"; LineHeight "1.7"; CSSProp.Custom("white-space","pre-wrap") ]
+    let cardStyle    = Style [ Background "#161618"; Border "1px solid #2A2A2E"; BorderRadius "10px"; Padding "1.25rem 1.5rem"; MarginBottom "1.25rem" ]
+
+    let done_ = not model.RetryActive && not model.RetryLog.IsEmpty
+    let succeeded = done_ && model.RetryLog |> List.exists (fun s -> s.Contains("succeeded"))
+
+    div [ ClassName "comp-page" ] [
+        div [ ClassName "comp-header" ] [
+            div [ ClassName "comp-header-row" ] [
+                h1 [ ClassName "comp-name" ] [ str demo.Name ]
+                wc "fui-badge" [ "variant", "accent" ] [ str "Backend" ]
+            ]
+            p [ Style [ FontFamily "'Sora',sans-serif"; Color "#6E6E76"; Margin "0" ] ] [ str demo.Description ]
+        ]
+
+        // ── Controls ───────────────────────────────────────────────────────────
+        div [ cardStyle ] [
+            p [ labelStyle ] [ str "Session" ]
+            div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("gap","0.625rem"); CSSProp.Custom("align-items","center"); CSSProp.Custom("flex-wrap","wrap") ] ] [
+                if model.RetrySession <> "" then
+                    span [ Style [ FontFamily "'JetBrains Mono',monospace"; FontSize "0.8rem"; Color "#7C3AED" ] ] [ str model.RetrySession ]
+                domEl "fui-button" [
+                    HTMLAttr.Custom("variant", box "secondary"); HTMLAttr.Custom("size", box "sm")
+                    if model.RetryActive then HTMLAttr.Custom("disabled", box "")
+                    OnClick (fun _ -> dispatch RetryNewSession)
+                ] [ str "New Session" ]
+            ]
+            div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("gap","0.625rem"); MarginTop "1rem" ] ] [
+                domEl "fui-button" [
+                    HTMLAttr.Custom("variant", box "primary"); HTMLAttr.Custom("size", box "sm")
+                    if model.RetryActive then HTMLAttr.Custom("disabled", box "")
+                    OnClick (fun _ -> dispatch RetryStart)
+                ] [ str (if model.RetryActive then "Running…" else "Start Retry Loop") ]
+                if not model.RetryLog.IsEmpty && not model.RetryActive then
+                    domEl "fui-button" [
+                        HTMLAttr.Custom("variant", box "ghost"); HTMLAttr.Custom("size", box "sm")
+                        OnClick (fun _ -> dispatch RetryClear)
+                    ] [ str "Clear" ]
+                if model.RetryActive then wc "fui-spinner" [ "size", "sm" ] []
+            ]
+        ]
+
+        // ── Attempt log ────────────────────────────────────────────────────────
+        div [ cardStyle ] [
+            p [ labelStyle ] [ str "Attempt Log" ]
+            if done_ then
+                wc "fui-alert" [
+                    "variant", (if succeeded then "success" else "danger")
+                    "title",   (if succeeded then "Succeeded after retries" else "All retries exhausted")
+                ] [ str (if succeeded then "The endpoint recovered. Backoff + retry absorbed the transient failure transparently." else "Max retries reached without a successful response.") ]
+            if model.RetryLog.IsEmpty then
+                wc "fui-empty-state" [ "title", "No attempts yet"; "description", "Click Start Retry Loop. The server fails 3 times before succeeding." ] []
+            else
+                div [ Style [ Background "#0D0D0F"; Border "1px solid #2A2A2E"; BorderRadius "8px"; Padding "1rem 1.25rem"; MarginTop "0.875rem" ] ] [
+                    pre [ codePreStyle ] [
+                        str (model.RetryLog |> List.rev |> String.concat "\n")
+                    ]
+                ]
+        ]
+
+        div [] [
+            p [ labelStyle ] [ str "Server source (F#)" ]
+            wc "fui-code-block" [ "language", "fsharp"; "code", demo.SourceCode ] []
+        ]
+    ]
+
+// ── PATCH / Partial Update page ───────────────────────────────────────────────
+
+let private patchPage (demo: BackendDemoMeta) (model: Model) (dispatch: Msg -> unit) =
+    let labelStyle   = Style [ FontFamily "'JetBrains Mono',monospace"; FontSize "0.65rem"; FontWeight "700"; CSSProp.Custom("text-transform","uppercase"); CSSProp.Custom("letter-spacing","0.08em"); Color "#6E6E76"; MarginBottom "0.5rem" ]
+    let codePreStyle = Style [ Margin "0"; FontFamily "'JetBrains Mono',monospace"; FontSize "0.8rem"; Color "#E8E8ED"; LineHeight "1.7"; CSSProp.Custom("white-space","pre") ]
+    let panelStyle   = Style [ Background "#0D0D0F"; Border "1px solid #2A2A2E"; BorderRadius "8px"; Padding "1.125rem 1.375rem"; CSSProp.Custom("overflow","auto") ]
+    let cardStyle    = Style [ Background "#161618"; Border "1px solid #2A2A2E"; BorderRadius "10px"; Padding "1.25rem 1.5rem"; MarginBottom "1.25rem" ]
+    let inputStyle   = Style [ Background "#0D0D0F"; Border "1px solid #2A2A2E"; BorderRadius "6px"; Color "#E8E8ED"; FontFamily "'JetBrains Mono',monospace"; FontSize "0.875rem"; Padding "0.5rem 0.75rem"; Width "100%"; Outline "none"; CSSProp.Custom("box-sizing","border-box") ]
+    let fieldLabel s = p [ Style [ FontFamily "'JetBrains Mono',monospace"; FontSize "0.72rem"; Color "#6E6E76"; MarginBottom "0.35rem"; Margin "0 0 0.3rem" ] ] [ str s ]
+    let row          = Style [ Display DisplayOptions.Flex; CSSProp.Custom("gap","0.75rem"); CSSProp.Custom("align-items","flex-end"); CSSProp.Custom("flex-wrap","wrap") ]
+
+    div [ ClassName "comp-page" ] [
+        div [ ClassName "comp-header" ] [
+            div [ ClassName "comp-header-row" ] [
+                h1 [ ClassName "comp-name" ] [ str demo.Name ]
+                wc "fui-badge" [ "variant", "accent" ] [ str "Backend" ]
+            ]
+            p [ Style [ FontFamily "'Sora',sans-serif"; Color "#6E6E76"; Margin "0" ] ] [ str demo.Description ]
+        ]
+
+        div [ cardStyle ] [
+            p [ labelStyle ] [ str "Load current profile" ]
+            p [ Style [ FontFamily "'Sora',sans-serif"; FontSize "0.85rem"; Color "#6E6E76"; Margin "0 0 0.75rem" ] ] [ str "GET /api/demo/patch/profile — fetches the live server state and pre-fills the form." ]
+            domEl "fui-button" [
+                HTMLAttr.Custom("variant", box "secondary")
+                OnClick (fun _ -> dispatch PatchLoad)
+            ] [ str "Load Profile" ]
+        ]
+
+        div [ cardStyle ] [
+            p [ labelStyle ] [ str "Edit & PATCH" ]
+            p [ Style [ FontFamily "'Sora',sans-serif"; FontSize "0.85rem"; Color "#6E6E76"; Margin "0 0 1rem" ] ] [ str "Modify any fields. Only the fields you include in the request body are updated (RFC 7396 JSON Merge Patch)." ]
+            div [ Style [ Display DisplayOptions.Grid; CSSProp.Custom("grid-template-columns","1fr 1fr"); CSSProp.Custom("gap","0.75rem 1rem") ] ] [
+                div [] [
+                    fieldLabel "Name"
+                    input [ inputStyle; Value model.PatchName; OnChange (fun e -> dispatch (PatchSet("name", e.Value))) ]
+                ]
+                div [] [
+                    fieldLabel "Email"
+                    input [ inputStyle; Value model.PatchEmail; OnChange (fun e -> dispatch (PatchSet("email", e.Value))) ]
+                ]
+                div [] [
+                    fieldLabel "Bio"
+                    input [ inputStyle; Value model.PatchBio; OnChange (fun e -> dispatch (PatchSet("bio", e.Value))) ]
+                ]
+                div [] [
+                    fieldLabel "Website"
+                    input [ inputStyle; Value model.PatchWebsite; OnChange (fun e -> dispatch (PatchSet("website", e.Value))) ]
+                ]
+            ]
+            div [ Style [ MarginTop "1rem" ] ] [
+                domEl "fui-button" [
+                    HTMLAttr.Custom("variant", box "primary")
+                    if model.PatchName = "" && model.PatchEmail = "" then HTMLAttr.Custom("disabled", box "")
+                    OnClick (fun _ -> dispatch PatchSave)
+                ] [ str "PATCH Profile" ]
+            ]
+        ]
+
+        if model.PatchBody <> "" then
+            div [ Style [ MarginBottom "1.5rem" ] ] [
+                p [ labelStyle ] [ str "Server state after last request" ]
+                div [ panelStyle ] [ pre [ codePreStyle ] [ str model.PatchBody ] ]
+            ]
+
+        div [] [
+            p [ labelStyle ] [ str "Server source (F#)" ]
+            wc "fui-code-block" [ "language", "fsharp"; "code", demo.SourceCode ] []
+        ]
+    ]
+
+// ── API Versioning page ────────────────────────────────────────────────────────
+
+let private versionPage (demo: BackendDemoMeta) (model: Model) (dispatch: Msg -> unit) =
+    let labelStyle   = Style [ FontFamily "'JetBrains Mono',monospace"; FontSize "0.65rem"; FontWeight "700"; CSSProp.Custom("text-transform","uppercase"); CSSProp.Custom("letter-spacing","0.08em"); Color "#6E6E76"; MarginBottom "0.5rem" ]
+    let codePreStyle = Style [ Margin "0"; FontFamily "'JetBrains Mono',monospace"; FontSize "0.8rem"; Color "#E8E8ED"; LineHeight "1.7"; CSSProp.Custom("white-space","pre") ]
+    let panelStyle   = Style [ Background "#0D0D0F"; Border "1px solid #2A2A2E"; BorderRadius "8px"; Padding "1.125rem 1.375rem"; CSSProp.Custom("overflow","auto") ]
+    let cardStyle    = Style [ Background "#161618"; Border "1px solid #2A2A2E"; BorderRadius "10px"; Padding "1.25rem 1.5rem"; MarginBottom "1.25rem" ]
+    let statusVariant code = if code >= 200 && code < 300 then "success" elif code >= 500 then "danger" elif code >= 400 then "warning" else "info"
+
+    let versionPanel (ver: string) (status: int) (body: string) (headers: string) (label: string) (deprecated: bool) =
+        div [ cardStyle ] [
+            div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("align-items","center"); CSSProp.Custom("gap","0.75rem"); MarginBottom "0.875rem" ] ] [
+                wc "fui-badge" [ "variant", if deprecated then "warning" else "success" ] [ str label ]
+                if deprecated then wc "fui-badge" [ "variant", "danger" ] [ str "Deprecated" ]
+                domEl "fui-button" [
+                    HTMLAttr.Custom("variant", box "secondary")
+                    HTMLAttr.Custom("size", box "small")
+                    OnClick (fun _ -> dispatch (VerFetch ver))
+                ] [ str $"Call {label}" ]
+            ]
+            if body <> "" then
+                div [] [
+                    div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("gap","0.5rem"); MarginBottom "0.5rem" ] ] [
+                        wc "fui-badge" [ "variant", statusVariant status ] [ str $"HTTP {status}" ]
+                    ]
+                    if headers <> "" then
+                        div [ Style [ Background "#1A1014"; Border "1px solid #412020"; BorderRadius "6px"; Padding "0.6rem 0.875rem"; MarginBottom "0.5rem" ] ] [
+                            pre [ Style [ Margin "0"; FontFamily "'JetBrains Mono',monospace"; FontSize "0.78rem"; Color "#F87171"; LineHeight "1.6"; CSSProp.Custom("white-space","pre") ] ] [ str headers ]
+                        ]
+                    div [ panelStyle ] [ pre [ codePreStyle ] [ str body ] ]
+                ]
+            else
+                wc "fui-empty-state" [ "title", $"No response yet"; "description", $"Click \"Call {label}\" to fetch." ] []
+        ]
+
+    div [ ClassName "comp-page" ] [
+        div [ ClassName "comp-header" ] [
+            div [ ClassName "comp-header-row" ] [
+                h1 [ ClassName "comp-name" ] [ str demo.Name ]
+                wc "fui-badge" [ "variant", "accent" ] [ str "Backend" ]
+            ]
+            p [ Style [ FontFamily "'Sora',sans-serif"; Color "#6E6E76"; Margin "0" ] ] [ str demo.Description ]
+        ]
+
+        p [ Style [ FontFamily "'Sora',sans-serif"; FontSize "0.88rem"; Color "#6E6E76"; Margin "0 0 1.25rem" ] ] [
+            str "v1 response includes Deprecation, Sunset, and Link headers pointing to the successor version. v2 returns a richer nested shape."
+        ]
+
+        div [ Style [ Display DisplayOptions.Grid; CSSProp.Custom("grid-template-columns","1fr 1fr"); CSSProp.Custom("gap","1rem") ] ] [
+            versionPanel "v1" model.VerV1Status model.VerV1Body model.VerV1Headers "v1" true
+            versionPanel "v2" model.VerV2Status model.VerV2Body model.VerV2Headers "v2" false
+        ]
+
+        div [] [
+            p [ labelStyle ] [ str "Server source (F#)" ]
+            wc "fui-code-block" [ "language", "fsharp"; "code", demo.SourceCode ] []
+        ]
+    ]
+
+// ── Bulk Operations page ───────────────────────────────────────────────────────
+
+let private bulkPage (demo: BackendDemoMeta) (model: Model) (dispatch: Msg -> unit) =
+    let labelStyle   = Style [ FontFamily "'JetBrains Mono',monospace"; FontSize "0.65rem"; FontWeight "700"; CSSProp.Custom("text-transform","uppercase"); CSSProp.Custom("letter-spacing","0.08em"); Color "#6E6E76"; MarginBottom "0.5rem" ]
+    let codePreStyle = Style [ Margin "0"; FontFamily "'JetBrains Mono',monospace"; FontSize "0.8rem"; Color "#E8E8ED"; LineHeight "1.7"; CSSProp.Custom("white-space","pre") ]
+    let panelStyle   = Style [ Background "#0D0D0F"; Border "1px solid #2A2A2E"; BorderRadius "8px"; Padding "1.125rem 1.375rem"; CSSProp.Custom("overflow","auto") ]
+    let cardStyle    = Style [ Background "#161618"; Border "1px solid #2A2A2E"; BorderRadius "10px"; Padding "1.25rem 1.5rem"; MarginBottom "1.25rem" ]
+    let statusVariant code = if code >= 200 && code < 300 then "success" elif code >= 500 then "danger" elif code >= 400 then "warning" else "info"
+
+    let bulkHasResult = model.BulkBody <> ""
+    let bulkR = parseBulkResp model.BulkBody
+
+    div [ ClassName "comp-page" ] [
+        div [ ClassName "comp-header" ] [
+            div [ ClassName "comp-header-row" ] [
+                h1 [ ClassName "comp-name" ] [ str demo.Name ]
+                wc "fui-badge" [ "variant", "accent" ] [ str "Backend" ]
+            ]
+            p [ Style [ FontFamily "'Sora',sans-serif"; Color "#6E6E76"; Margin "0" ] ] [ str demo.Description ]
+        ]
+
+        div [ cardStyle ] [
+            p [ labelStyle ] [ str "Request body — JSON array" ]
+            p [ Style [ FontFamily "'Sora',sans-serif"; FontSize "0.85rem"; Color "#6E6E76"; Margin "0 0 0.75rem" ] ] [ str "Items missing name or with negative value fail with 422. Returns 207 Multi-Status when there is a mix." ]
+            textarea [
+                Style [ Background "#0D0D0F"; Border "1px solid #2A2A2E"; BorderRadius "6px"; Color "#E8E8ED"; FontFamily "'JetBrains Mono',monospace"; FontSize "0.8rem"; Padding "0.75rem"; Width "100%"; Height "160px"; Outline "none"; CSSProp.Custom("box-sizing","border-box"); CSSProp.Custom("resize","vertical") ]
+                Value model.BulkInput
+                OnChange (fun e -> dispatch (BulkSetInput e.Value))
+            ] []
+            div [ Style [ MarginTop "0.75rem" ] ] [
+                domEl "fui-button" [
+                    HTMLAttr.Custom("variant", box "primary")
+                    OnClick (fun _ -> dispatch BulkImport)
+                ] [ str "POST /bulk/items" ]
+            ]
+        ]
+
+        if bulkHasResult then
+            div [ cardStyle ] [
+                div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("gap","0.75rem"); CSSProp.Custom("align-items","center"); MarginBottom "0.875rem" ] ] [
+                    wc "fui-badge" [ "variant", statusVariant model.BulkStatus ] [ str $"HTTP {model.BulkStatus}" ]
+                    wc "fui-badge" [ "variant", "success" ] [ str $"{bulkR.created} created" ]
+                    if bulkR.failed > 0 then wc "fui-badge" [ "variant", "danger" ] [ str $"{bulkR.failed} failed" ]
+                ]
+                table [ Style [ Width "100%"; CSSProp.Custom("border-collapse","collapse") ] ] [
+                    thead [] [
+                        tr [] [
+                            for h in ["#"; "ID"; "Status"; "Errors"] do
+                                th [ Style [ FontFamily "'JetBrains Mono',monospace"; FontSize "0.68rem"; Color "#6E6E76"; CSSProp.Custom("text-transform","uppercase"); CSSProp.Custom("letter-spacing","0.06em"); Padding "0.4rem 0.6rem"; CSSProp.Custom("border-bottom","1px solid #2A2A2E"); CSSProp.Custom("text-align","left") ] ] [ str h ]
+                        ]
+                    ]
+                    tbody [] [
+                        for item in bulkR.items do
+                            tr [ Style [ CSSProp.Custom("border-bottom","1px solid #1A1A1C") ] ] [
+                                td [ Style [ Padding "0.45rem 0.6rem"; FontFamily "'JetBrains Mono',monospace"; FontSize "0.8rem"; Color "#6E6E76" ] ] [ str (string item.index) ]
+                                td [ Style [ Padding "0.45rem 0.6rem"; FontFamily "'JetBrains Mono',monospace"; FontSize "0.8rem"; Color "#E8E8ED" ] ] [ str item.id ]
+                                td [ Style [ Padding "0.45rem 0.6rem" ] ] [ wc "fui-badge" [ "variant", statusVariant item.status ] [ str (string item.status) ] ]
+                                td [ Style [ Padding "0.45rem 0.6rem"; FontFamily "'JetBrains Mono',monospace"; FontSize "0.78rem"; Color (if item.ok then "#6E6E76" else "#F87171") ] ] [ str (if item.ok then "—" else item.errors) ]
+                            ]
+                    ]
+                ]
+            ]
+
+        div [] [
+            p [ labelStyle ] [ str "Server source (F#)" ]
+            wc "fui-code-block" [ "language", "fsharp"; "code", demo.SourceCode ] []
+        ]
+    ]
+
+// ── Soft Delete & Restore page ─────────────────────────────────────────────────
+
+let private softDeletePage (demo: BackendDemoMeta) (model: Model) (dispatch: Msg -> unit) =
+    let labelStyle = Style [ FontFamily "'JetBrains Mono',monospace"; FontSize "0.65rem"; FontWeight "700"; CSSProp.Custom("text-transform","uppercase"); CSSProp.Custom("letter-spacing","0.08em"); Color "#6E6E76"; MarginBottom "0.5rem" ]
+    let cardStyle  = Style [ Background "#161618"; Border "1px solid #2A2A2E"; BorderRadius "10px"; Padding "1.25rem 1.5rem"; MarginBottom "1.25rem" ]
+    let softHasItems = model.SoftBody <> ""
+    let items = parseSoftItems model.SoftBody
+
+    div [ ClassName "comp-page" ] [
+        div [ ClassName "comp-header" ] [
+            div [ ClassName "comp-header-row" ] [
+                h1 [ ClassName "comp-name" ] [ str demo.Name ]
+                wc "fui-badge" [ "variant", "accent" ] [ str "Backend" ]
+            ]
+            p [ Style [ FontFamily "'Sora',sans-serif"; Color "#6E6E76"; Margin "0" ] ] [ str demo.Description ]
+        ]
+
+        div [ cardStyle ] [
+            div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("align-items","center"); CSSProp.Custom("gap","0.75rem"); CSSProp.Custom("flex-wrap","wrap") ] ] [
+                domEl "fui-button" [
+                    HTMLAttr.Custom("variant", box "primary")
+                    OnClick (fun _ -> dispatch SoftFetch)
+                ] [ str "Load Items" ]
+                domEl "fui-button" [
+                    HTMLAttr.Custom("variant", box "secondary")
+                    OnClick (fun _ ->
+                        dispatch SoftToggleDel
+                        dispatch SoftFetch)
+                ] [ str (if model.SoftShowDel then "Showing All (incl. deleted)" else "Showing Active Only") ]
+            ]
+        ]
+
+        if not softHasItems then
+            wc "fui-empty-state" [ "title", "No data yet"; "description", "Click \"Load Items\" to fetch the list." ] []
+        else
+            div [ cardStyle ] [
+                p [ labelStyle ] [ str $"Items ({items.Length})" ]
+                table [ Style [ Width "100%"; CSSProp.Custom("border-collapse","collapse") ] ] [
+                    thead [] [
+                        tr [] [
+                            for h in ["ID"; "Name"; "Status"; "Deleted At"; ""] do
+                                th [ Style [ FontFamily "'JetBrains Mono',monospace"; FontSize "0.68rem"; Color "#6E6E76"; CSSProp.Custom("text-transform","uppercase"); CSSProp.Custom("letter-spacing","0.06em"); Padding "0.4rem 0.6rem"; CSSProp.Custom("border-bottom","1px solid #2A2A2E"); CSSProp.Custom("text-align","left") ] ] [ str h ]
+                        ]
+                    ]
+                    tbody [] [
+                        for item in items do
+                            tr [ Style [ CSSProp.Custom("border-bottom","1px solid #1A1A1C"); CSSProp.Custom("opacity", if item.deleted then "0.55" else "1") ] ] [
+                                td [ Style [ Padding "0.45rem 0.6rem"; FontFamily "'JetBrains Mono',monospace"; FontSize "0.8rem"; Color "#6E6E76" ] ] [ str (string item.id) ]
+                                td [ Style [ Padding "0.45rem 0.6rem"; FontFamily "'JetBrains Mono',monospace"; FontSize "0.8rem"; Color "#E8E8ED" ] ] [ str item.name ]
+                                td [ Style [ Padding "0.45rem 0.6rem" ] ] [ wc "fui-badge" [ "variant", if item.deleted then "danger" else "success" ] [ str (if item.deleted then "Deleted" else "Active") ] ]
+                                td [ Style [ Padding "0.45rem 0.6rem"; FontFamily "'JetBrains Mono',monospace"; FontSize "0.75rem"; Color "#6E6E76" ] ] [ str (if item.deletedAt = "" then "—" else item.deletedAt.[..18]) ]
+                                td [ Style [ Padding "0.45rem 0.6rem" ] ] [
+                                    if item.deleted then
+                                        domEl "fui-button" [
+                                            HTMLAttr.Custom("variant", box "success")
+                                            HTMLAttr.Custom("size", box "small")
+                                            OnClick (fun _ -> dispatch (SoftRestore item.id))
+                                        ] [ str "Restore" ]
+                                    else
+                                        domEl "fui-button" [
+                                            HTMLAttr.Custom("variant", box "danger")
+                                            HTMLAttr.Custom("size", box "small")
+                                            OnClick (fun _ -> dispatch (SoftDelete item.id))
+                                        ] [ str "Delete" ]
+                                ]
+                            ]
+                    ]
+                ]
+            ]
+
+        div [] [
+            p [ labelStyle ] [ str "Server source (F#)" ]
+            wc "fui-code-block" [ "language", "fsharp"; "code", demo.SourceCode ] []
+        ]
+    ]
+
+// ── Circuit Breaker page ───────────────────────────────────────────────────────
+
+let private circuitBreakerPage (demo: BackendDemoMeta) (model: Model) (dispatch: Msg -> unit) =
+    let labelStyle   = Style [ FontFamily "'JetBrains Mono',monospace"; FontSize "0.65rem"; FontWeight "700"; CSSProp.Custom("text-transform","uppercase"); CSSProp.Custom("letter-spacing","0.08em"); Color "#6E6E76"; MarginBottom "0.5rem" ]
+    let cardStyle    = Style [ Background "#161618"; Border "1px solid #2A2A2E"; BorderRadius "10px"; Padding "1.25rem 1.5rem"; MarginBottom "1.25rem" ]
+    let inputStyle   = Style [ Background "#0D0D0F"; Border "1px solid #2A2A2E"; BorderRadius "6px"; Color "#E8E8ED"; FontFamily "'JetBrains Mono',monospace"; FontSize "0.875rem"; Padding "0.5rem 0.75rem"; Width "100px"; Outline "none" ]
+
+    let cbState =
+        model.CBLog
+        |> List.tryHead
+        |> Option.map (fun (_, s, _) -> s)
+        |> Option.defaultValue "Closed"
+
+    let stateVariant =
+        match cbState with
+        | "Open"     -> "danger"
+        | "HalfOpen" -> "warning"
+        | _          -> "success"
+
+    div [ ClassName "comp-page" ] [
+        div [ ClassName "comp-header" ] [
+            div [ ClassName "comp-header-row" ] [
+                h1 [ ClassName "comp-name" ] [ str demo.Name ]
+                wc "fui-badge" [ "variant", "accent" ] [ str "Backend" ]
+            ]
+            p [ Style [ FontFamily "'Sora',sans-serif"; Color "#6E6E76"; Margin "0" ] ] [ str demo.Description ]
+        ]
+
+        div [ cardStyle ] [
+            div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("align-items","center"); CSSProp.Custom("gap","1rem"); CSSProp.Custom("flex-wrap","wrap") ] ] [
+                div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("align-items","center"); CSSProp.Custom("gap","0.5rem") ] ] [
+                    span [ Style [ FontFamily "'JetBrains Mono',monospace"; FontSize "0.75rem"; Color "#6E6E76" ] ] [ str "Circuit:" ]
+                    wc "fui-badge" [ "variant", stateVariant ] [ str cbState ]
+                ]
+                div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("align-items","center"); CSSProp.Custom("gap","0.5rem") ] ] [
+                    span [ Style [ FontFamily "'JetBrains Mono',monospace"; FontSize "0.75rem"; Color "#6E6E76" ] ] [ str "Fail rate:" ]
+                    input [ inputStyle; Value model.CBFailRate; OnChange (fun e -> dispatch (CBSetFailRate e.Value)) ]
+                ]
+                domEl "fui-button" [
+                    HTMLAttr.Custom("variant", box "primary")
+                    if model.CBActive then HTMLAttr.Custom("disabled", box "")
+                    OnClick (fun _ -> dispatch CBCall)
+                ] [ str "Call Upstream" ]
+                domEl "fui-button" [
+                    HTMLAttr.Custom("variant", box "secondary")
+                    OnClick (fun _ -> dispatch CBReset)
+                ] [ str "Reset Circuit" ]
+                if not model.CBLog.IsEmpty then
+                    domEl "fui-button" [
+                        HTMLAttr.Custom("variant", box "ghost")
+                        HTMLAttr.Custom("size", box "small")
+                        OnClick (fun _ -> dispatch CBLogClear)
+                    ] [ str "Clear" ]
+            ]
+        ]
+
+        div [ cardStyle ] [
+            p [ labelStyle ] [ str "State machine" ]
+            p [ Style [ FontFamily "'Sora',sans-serif"; FontSize "0.85rem"; Color "#6E6E76"; Margin "0 0 0.5rem" ] ] [
+                str "Closed → Open after 3 consecutive failures. Open → HalfOpen after 10 s. HalfOpen → Closed after 2 consecutive successes."
+            ]
+            if model.CBLog.IsEmpty then
+                wc "fui-empty-state" [ "title", "No calls yet"; "description", "Click \"Call Upstream\" to trigger the simulated service." ] []
+            else
+                div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("flex-direction","column"); CSSProp.Custom("gap","0.35rem") ] ] [
+                    for (status, state, msg) in model.CBLog do
+                        div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("align-items","center"); CSSProp.Custom("gap","0.5rem"); FontFamily "'JetBrains Mono',monospace"; FontSize "0.78rem" ] ] [
+                            wc "fui-badge" [ "variant", (if status = 200 then "success" else "danger") ] [ str (string status) ]
+                            wc "fui-badge" [ "variant", (match state with "Open" -> "danger" | "HalfOpen" -> "warning" | _ -> "success") ] [ str state ]
+                            span [ Style [ Color "#9E9EA8" ] ] [ str msg ]
+                        ]
+                ]
+        ]
+
+        div [] [
+            p [ labelStyle ] [ str "Server source (F#)" ]
+            wc "fui-code-block" [ "language", "fsharp"; "code", demo.SourceCode ] []
+        ]
+    ]
+
 let backendDemoPage (slug: string) (model: Model) (dispatch: Msg -> unit) =
     match backendDemos |> List.tryFind (fun d -> d.Slug = slug) with
     | None ->
@@ -3621,6 +5802,36 @@ let backendDemoPage (slug: string) (model: Model) (dispatch: Msg -> unit) =
         fileUploadPage demo model dispatch
     | Some demo when demo.Slug = "sse" ->
         ssePage demo model dispatch
+    | Some demo when demo.Slug = "api-key-auth" ->
+        apiKeyPage demo model dispatch
+    | Some demo when demo.Slug = "streaming-download" ->
+        streamingPage demo model dispatch
+    | Some demo when demo.Slug = "idempotency-keys" ->
+        idempotencyPage demo model dispatch
+    | Some demo when demo.Slug = "response-caching" ->
+        cachingPage demo model dispatch
+    | Some demo when demo.Slug = "content-negotiation" ->
+        contentNegPage demo model dispatch
+    | Some demo when demo.Slug = "request-validation" ->
+        validationPage demo model dispatch
+    | Some demo when demo.Slug = "correlation-id" ->
+        corrPage demo model dispatch
+    | Some demo when demo.Slug = "optimistic-concurrency" ->
+        optimisticPage demo model dispatch
+    | Some demo when demo.Slug = "long-polling" ->
+        longPollPage demo model dispatch
+    | Some demo when demo.Slug = "retry-backoff" ->
+        retryPage demo model dispatch
+    | Some demo when demo.Slug = "patch-update" ->
+        patchPage demo model dispatch
+    | Some demo when demo.Slug = "api-versioning" ->
+        versionPage demo model dispatch
+    | Some demo when demo.Slug = "bulk-operations" ->
+        bulkPage demo model dispatch
+    | Some demo when demo.Slug = "soft-delete" ->
+        softDeletePage demo model dispatch
+    | Some demo when demo.Slug = "circuit-breaker" ->
+        circuitBreakerPage demo model dispatch
     | Some demo ->
         let state   = model.BackendResults |> Map.tryFind slug |> Option.defaultValue Idle
         let loading = state = Fetching

@@ -407,6 +407,12 @@ let parsePage (hash: string) : Route =
 
 ---
 
+## Git / Commits
+
+**Never commit code.** Always leave committing to the user. Make all code changes, then stop — do not run `git add`, `git commit`, or any other git write command unless the user explicitly asks.
+
+---
+
 ## Implementation Rules
 
 ### Fable.Lit / Web Component rules

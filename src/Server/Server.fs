@@ -70,6 +70,62 @@ let webApp =
         // Server-Sent Events
         get Route.sseStream Demos.SseDemo.stream
 
+        // Correlation ID
+        get Route.correlationPing Demos.CorrelationDemo.ping
+
+        // Optimistic concurrency
+        get  Route.optimisticDoc   Demos.OptimisticDemo.getDoc
+        put  Route.optimisticDoc   Demos.OptimisticDemo.putDoc
+        post Route.optimisticForce Demos.OptimisticDemo.forceUpdate
+
+        // Long polling
+        get  Route.longPollWait    Demos.LongPollDemo.wait
+        post Route.longPollPublish Demos.LongPollDemo.publish
+
+        // Retry with exponential backoff
+        get  Route.retryFlaky Demos.RetryDemo.flaky
+        post Route.retryReset Demos.RetryDemo.reset
+
+        // PATCH / Partial Update
+        get   Route.patchProfile Demos.PatchDemo.get
+        patch Route.patchProfile Demos.PatchDemo.patch
+
+        // API Versioning
+        get Route.versionV1 Demos.ApiVersionDemo.v1
+        get Route.versionV2 Demos.ApiVersionDemo.v2
+
+        // Bulk Operations (207 Multi-Status)
+        post Route.bulkItems Demos.BulkDemo.bulkImport
+
+        // Soft Delete & Restore
+        get     Route.softDeleteItems                           Demos.SoftDeleteDemo.getAll
+        post    Route.softDeleteItems                           Demos.SoftDeleteDemo.add
+        deletef "/api/demo/softdelete/items/%i"                 Demos.SoftDeleteDemo.delete
+        postf   "/api/demo/softdelete/items/%i/restore"         Demos.SoftDeleteDemo.restore
+
+        // Circuit Breaker
+        get  Route.cbCall  Demos.CircuitBreakerDemo.call
+        post Route.cbReset Demos.CircuitBreakerDemo.reset
+
+        // API key auth
+        get Route.apiKeyResource Demos.ApiKeyDemo.resource
+
+        // Streaming download (chunked transfer)
+        get Route.streamData Demos.StreamingDemo.stream
+
+        // Idempotency keys
+        post Route.idempotent Demos.IdempotencyDemo.placeOrder
+
+        // Response caching (ETag + conditional GET)
+        get  Route.cacheDemo Demos.CachingDemo.get
+        post Route.cacheDemo Demos.CachingDemo.mutate
+
+        // Content negotiation (JSON / CSV / plain text)
+        get Route.contentNeg Demos.ContentNegDemo.get
+
+        // Request validation (422 structured errors)
+        post Route.validate Demos.ValidationDemo.post
+
         // CRUD item API
         get     Route.items        Demos.CrudApi.getAll
         get     Route.itemsPaged   Demos.CrudApi.getPage
