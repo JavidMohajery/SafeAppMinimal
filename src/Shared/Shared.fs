@@ -86,3 +86,8 @@ module Route =
     // Circuit Breaker
     let cbCall  = "/api/demo/circuitbreaker/call"
     let cbReset = "/api/demo/circuitbreaker/reset"
+
+    // Structured Logging
+    let logWrite   = "/api/demo/logging/write"
+    let logEntries = "/api/demo/logging/entries"
+    let logClear   = "/api/demo/logging/clear"

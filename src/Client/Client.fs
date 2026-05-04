@@ -102,6 +102,12 @@ type Model = {
     CBLog          : (int * string * string) list
     CBFailRate     : string
     CBActive       : bool
+    LogLevel       : string
+    LogTemplate    : string
+    LogArgs        : string
+    LogLastBody    : string
+    LogLastStatus  : int
+    LogEntries     : string
 }
 
 type Msg =
@@ -209,6 +215,15 @@ type Msg =
     | CBResetDone   of int * string
     | CBSetFailRate of string
     | CBLogClear
+    | SetLogLevel   of string
+    | SetLogTmpl    of string
+    | SetLogArgs    of string
+    | LogWrite
+    | LogWritten    of int * string
+    | LogFetch
+    | LogFetched    of int * string
+    | LogClear
+    | LogCleared    of int * string
 
 let private defaultBulkInput = """[
   {"id":"item-1","name":"Widget Alpha","value":9.99},
@@ -252,7 +267,7 @@ let init () =
     let defaultPag  = { Filter = ""; SortBy = "id"; SortDir = "asc"; PageSize = "5"; Page = 1 }
     let defaultAuth = { Username = "admin"; Password = "password123"; Token = "" }
     let defaultVal = { ValName = ""; ValEmail = ""; ValAge = "" }
-    { Page = parsePage hash; Hash = hash; ElmishCounter = counter; BackendResults = Map.empty; Theme = Dark; SidebarOpen = false; CrudForm = defaultCrud; PagForm = defaultPag; AuthForm = defaultAuth; RateLimitLog = []; JobPolling = false; JobLog = []; WsStatus = WsIdle; WsLog = []; WsInput = ""; UploadFile = None; SseLog = []; SseActive = false; CacheEtag = ""; ContentNegAccept = "application/json"; ContentNegCt = ""; ValForm = defaultVal; ApiKey = "sk-demo-abc123"; StreamBuffer = ""; StreamActive = false; IdempKey = ""; IdempLog = []; CorrLog = []; OptEtag = ""; OptFetchedBody = ""; OptEditContent = ""; OptEditAuthor = ""; LPActive = false; LPEventId = 0; LPLog = []; LPInput = ""; RetryActive = false; RetryLog = []; RetrySession = ""; PatchName = ""; PatchEmail = ""; PatchBio = ""; PatchWebsite = ""; PatchBody = ""; VerV1Status = 0; VerV1Body = ""; VerV1Headers = ""; VerV2Status = 0; VerV2Body = ""; VerV2Headers = ""; BulkInput = defaultBulkInput; BulkBody = ""; BulkStatus = 0; SoftBody = ""; SoftShowDel = false; CBLog = []; CBFailRate = "0.7"; CBActive = false }, Cmd.none
+    { Page = parsePage hash; Hash = hash; ElmishCounter = counter; BackendResults = Map.empty; Theme = Dark; SidebarOpen = false; CrudForm = defaultCrud; PagForm = defaultPag; AuthForm = defaultAuth; RateLimitLog = []; JobPolling = false; JobLog = []; WsStatus = WsIdle; WsLog = []; WsInput = ""; UploadFile = None; SseLog = []; SseActive = false; CacheEtag = ""; ContentNegAccept = "application/json"; ContentNegCt = ""; ValForm = defaultVal; ApiKey = "sk-demo-abc123"; StreamBuffer = ""; StreamActive = false; IdempKey = ""; IdempLog = []; CorrLog = []; OptEtag = ""; OptFetchedBody = ""; OptEditContent = ""; OptEditAuthor = ""; LPActive = false; LPEventId = 0; LPLog = []; LPInput = ""; RetryActive = false; RetryLog = []; RetrySession = ""; PatchName = ""; PatchEmail = ""; PatchBio = ""; PatchWebsite = ""; PatchBody = ""; VerV1Status = 0; VerV1Body = ""; VerV1Headers = ""; VerV2Status = 0; VerV2Body = ""; VerV2Headers = ""; BulkInput = defaultBulkInput; BulkBody = ""; BulkStatus = 0; SoftBody = ""; SoftShowDel = false; CBLog = []; CBFailRate = "0.7"; CBActive = false; LogLevel = "Information"; LogTemplate = "User {Name} logged in as {Role}"; LogArgs = "Alice, admin"; LogLastBody = ""; LogLastStatus = 0; LogEntries = "" }, Cmd.none
 
 [<Fable.Core.Emit("fetch($0).then(r=>r.text().then(b=>({status:r.status,body:b})))")>]
 let private fetchGet (url: string) : Fable.Core.JS.Promise<{| status: int; body: string |}> = jsNative
@@ -426,6 +441,12 @@ let private parseBulkResp (s: string) :
 
 [<Fable.Core.Emit("(function(s){try{var o=JSON.parse(s);return{state:o.state||'?',message:o.message||s,failures:o.failures|0,successes:o.successes|0,totalCalls:o.totalCalls|0}}catch(_){return{state:'?',message:s,failures:0,successes:0,totalCalls:0}}})($0)")>]
 let private parseCBResp (s: string) : {| state: string; message: string; failures: int; successes: int; totalCalls: int |} = jsNative
+
+[<Fable.Core.Emit("JSON.stringify({level:$0,template:$1,args:$2})")>]
+let private makeLogBody (level: string) (template: string) (args: string[]) : string = jsNative
+
+[<Fable.Core.Emit("(function(s){try{var a=JSON.parse(s);return Array.isArray(a)?a.map(function(e){return{id:e.id|0,ts:e.ts||'',level:e.level||'',tmpl:e.tmpl||'',msg:e.msg||'',args:e.args||[]}}):[]}catch(_){return[]}})($0)")>]
+let private parseLogEntries (s: string) : {| id: int; ts: string; level: string; tmpl: string; msg: string; args: string[] |} array = jsNative
 
 let update msg model =
     match msg with
@@ -936,6 +957,43 @@ let update msg model =
     | CBLogClear ->
         { model with CBLog = [] }, Cmd.none
 
+    // ── Structured Logging ────────────────────────────────────────────────────
+    | SetLogLevel v -> { model with LogLevel = v }, Cmd.none
+    | SetLogTmpl  v -> { model with LogTemplate = v }, Cmd.none
+    | SetLogArgs  v -> { model with LogArgs = v }, Cmd.none
+    | LogWrite ->
+        let args =
+            model.LogArgs.Split(',')
+            |> Array.map    (fun s -> s.Trim())
+            |> Array.filter (fun s -> s <> "")
+        let body = makeLogBody model.LogLevel model.LogTemplate args
+        let cmd  = Cmd.OfPromise.either
+                     (fun () -> fetchJson "/api/demo/logging/write" "POST" body)
+                     ()
+                     (fun r  -> LogWritten(r.status, r.body))
+                     (fun ex -> LogWritten(0, ex.Message))
+        { model with LogLastStatus = 0 }, cmd
+    | LogWritten(status, body) ->
+        { model with LogLastStatus = status; LogLastBody = body }, Cmd.none
+    | LogFetch ->
+        let cmd = Cmd.OfPromise.either
+                    fetchGet
+                    "/api/demo/logging/entries"
+                    (fun r  -> LogFetched(r.status, r.body))
+                    (fun ex -> LogFetched(0, ex.Message))
+        model, cmd
+    | LogFetched(_, body) ->
+        { model with LogEntries = body }, Cmd.none
+    | LogClear ->
+        let cmd = Cmd.OfPromise.either
+                    (fun () -> fetchJson "/api/demo/logging/clear" "DELETE" "")
+                    ()
+                    (fun r  -> LogCleared(r.status, r.body))
+                    (fun ex -> LogCleared(0, ex.Message))
+        model, cmd
+    | LogCleared _ ->
+        { model with LogEntries = ""; LogLastBody = ""; LogLastStatus = 0 }, Cmd.none
+
     // ── Response Caching ─────────────────────────────────────────────────────
     | CacheFetch useEtag ->
         let inm = if useEtag then model.CacheEtag else ""
@@ -1155,6 +1213,7 @@ let sidebar (model: Model) (dispatch: Msg -> unit) =
                 sidebarLink "Bulk Operations"     "#/backend/bulk-operations"       model.Hash
                 sidebarLink "Soft Delete & Restore" "#/backend/soft-delete"         model.Hash
                 sidebarLink "Circuit Breaker"     "#/backend/circuit-breaker"       model.Hash
+                sidebarLink "Structured Logging"  "#/backend/logging"               model.Hash
             ]
             div [ ClassName "sidebar-group" ] [
                 div [ ClassName "sidebar-group-label" ] [ str "Examples" ]
@@ -3605,6 +3664,44 @@ let private backendDemos = [
                 if cbState = HalfOpen && successes >= passThreshold then
                     cbState <- Closed
                 (setStatusCode 200 >=> json {| state = stateStr(); message = "Upstream succeeded" |}) next ctx""" }
+
+    { Slug        = "logging"
+      Name        = "Structured Logging"
+      Description = "Writes structured log entries with a level, a {Placeholder} template, and positional args. The server renders the message and stores the last 50 entries in a ring buffer. Demonstrates log levels, template rendering, and live log inspection."
+      Method      = "POST"
+      Url         = "/api/demo/logging/write"
+      SourceCode  =
+    """// Demos/LoggingDemo.fs
+// Levels: Trace | Debug | Information | Warning | Error | Critical
+
+let private render (template: string) (args: string[]) =
+    args |> Array.fold (fun (acc: string) arg ->
+        let i0 = acc.IndexOf('{')
+        let i1 = if i0 >= 0 then acc.IndexOf('}', i0) else -1
+        if i0 >= 0 && i1 > i0 then acc.[0..i0-1] + arg + acc.[i1+1..]
+        else acc) template
+
+let write : HttpHandler = fun next ctx -> task {
+    let! req  = ctx.BindJsonAsync<WriteReq>()
+    let id    = Interlocked.Increment(&nextId)
+    let entry = { id = id; ts = DateTime.UtcNow.ToString("HH:mm:ss.fff")
+                  level = req.level; tmpl = req.template
+                  args = req.args; msg = render req.template req.args }
+    store.Enqueue(entry)
+    trimTo50 ()
+    return! json entry next ctx
+}
+
+let getAll : HttpHandler = fun next ctx ->
+    let entries = store.ToArray() |> Array.rev
+    json entries next ctx
+
+let clear : HttpHandler = fun next ctx ->
+    let rec drain () =
+        if store.Count > 0 then store.TryDequeue() |> ignore; drain ()
+    drain ()
+    Interlocked.Exchange(&nextId, 0) |> ignore
+    json {| cleared = true |} next ctx""" }
 ]
 
 let private crudApiPage (demo: BackendDemoMeta) (model: Model) (dispatch: Msg -> unit) =
@@ -5782,6 +5879,134 @@ let private circuitBreakerPage (demo: BackendDemoMeta) (model: Model) (dispatch:
         ]
     ]
 
+// ── Structured Logging page ───────────────────────────────────────────────────
+
+let private loggingPage (demo: BackendDemoMeta) (model: Model) (dispatch: Msg -> unit) =
+    let labelStyle   = Style [ FontFamily "'JetBrains Mono',monospace"; FontSize "0.65rem"; FontWeight "700"; CSSProp.Custom("text-transform","uppercase"); CSSProp.Custom("letter-spacing","0.08em"); Color "#6E6E76"; MarginBottom "0.5rem" ]
+    let codePreStyle = Style [ Margin "0"; FontFamily "'JetBrains Mono',monospace"; FontSize "0.8rem"; Color "#E8E8ED"; LineHeight "1.7"; CSSProp.Custom("white-space","pre-wrap"); CSSProp.Custom("word-break","break-all") ]
+    let panelStyle   = Style [ Background "#0D0D0F"; Border "1px solid #2A2A2E"; BorderRadius "8px"; Padding "1.125rem 1.375rem"; CSSProp.Custom("overflow","auto") ]
+    let cardStyle    = Style [ Background "#161618"; Border "1px solid #2A2A2E"; BorderRadius "10px"; Padding "1.25rem 1.5rem"; MarginBottom "1.25rem" ]
+    let inputStyle   = Style [ Background "#0D0D0F"; Border "1px solid #2A2A2E"; BorderRadius "6px"; Color "#E8E8ED"; FontFamily "'JetBrains Mono',monospace"; FontSize "0.875rem"; Padding "0.5rem 0.75rem"; Width "100%"; Outline "none"; CSSProp.Custom("box-sizing","border-box") ]
+    let selectStyle  = Style [ Background "#0D0D0F"; Border "1px solid #2A2A2E"; BorderRadius "6px"; Color "#E8E8ED"; FontFamily "'JetBrains Mono',monospace"; FontSize "0.8rem"; Padding "0.4rem 0.75rem" ]
+    let fieldLbl     = Style [ Display DisplayOptions.Block; FontFamily "'JetBrains Mono',monospace"; FontSize "0.72rem"; Color "#6E6E76"; MarginBottom "0.35rem" ]
+
+    let logLevels = [| "Trace"; "Debug"; "Information"; "Warning"; "Error"; "Critical" |]
+
+    let levelVariant =
+        function
+        | "Warning"     -> "warning"
+        | "Error"       -> "danger"
+        | "Critical"    -> "danger"
+        | "Information" -> "info"
+        | _             -> "secondary"
+
+    let statusVariant code =
+        if code >= 200 && code < 300 then "success"
+        elif code >= 400 then "warning"
+        else "info"
+
+    let entries    = parseLogEntries model.LogEntries
+    let hasEntries = model.LogEntries <> "" && entries.Length > 0
+
+    div [ ClassName "comp-page" ] [
+        div [ ClassName "comp-header" ] [
+            div [ ClassName "comp-header-row" ] [
+                h1 [ ClassName "comp-name" ] [ str demo.Name ]
+                wc "fui-badge" [ "variant", "accent" ] [ str "Backend" ]
+            ]
+            p [ Style [ FontFamily "'Sora',sans-serif"; Color "#6E6E76"; Margin "0" ] ] [ str demo.Description ]
+        ]
+
+        // ── Write card ──────────────────────────────────────────────────────
+        div [ cardStyle ] [
+            p [ labelStyle ] [ str "Write a Log Entry" ]
+            div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("flex-direction","column"); CSSProp.Custom("gap","0.875rem") ] ] [
+                div [] [
+                    span [ fieldLbl ] [ str "Level" ]
+                    domEl "select" [ selectStyle; OnChange (fun e -> dispatch (SetLogLevel e.Value)) ] [
+                        for lvl in logLevels do
+                            yield domEl "option" [
+                                HTMLAttr.Value lvl
+                                if lvl = model.LogLevel then HTMLAttr.Selected true
+                            ] [ str lvl ]
+                    ]
+                ]
+                div [] [
+                    span [ fieldLbl ] [ str "Template  (use {PlaceholderName} for positional args)" ]
+                    input [ inputStyle; Value model.LogTemplate; Placeholder "e.g. User {Name} logged in as {Role}"; OnChange (fun e -> dispatch (SetLogTmpl e.Value)) ]
+                ]
+                div [] [
+                    span [ fieldLbl ] [ str "Args  (comma-separated, in placeholder order)" ]
+                    input [ inputStyle; Value model.LogArgs; Placeholder "e.g. Alice, admin"; OnChange (fun e -> dispatch (SetLogArgs e.Value)) ]
+                ]
+                domEl "fui-button" [
+                    HTMLAttr.Custom("variant", box "primary")
+                    OnClick (fun _ -> dispatch LogWrite)
+                ] [ str "Write Entry" ]
+            ]
+            if model.LogLastStatus > 0 then
+                div [ Style [ MarginTop "1rem"; BorderTop "1px solid #2A2A2E"; PaddingTop "1rem" ] ] [
+                    div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("align-items","center"); CSSProp.Custom("gap","0.5rem"); MarginBottom "0.625rem" ] ] [
+                        wc "fui-badge" [ "variant", statusVariant model.LogLastStatus ] [ str $"HTTP {model.LogLastStatus}" ]
+                        span [ Style [ FontFamily "'JetBrains Mono',monospace"; FontSize "0.75rem"; Color "#6E6E76" ] ] [ str "Entry written" ]
+                    ]
+                    div [ panelStyle ] [ pre [ codePreStyle ] [ str model.LogLastBody ] ]
+                ]
+        ]
+
+        // ── Entries card ─────────────────────────────────────────────────────
+        div [ cardStyle ] [
+            div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("justify-content","space-between"); CSSProp.Custom("align-items","center"); MarginBottom "1rem" ] ] [
+                p [ Style [ FontFamily "'JetBrains Mono',monospace"; FontSize "0.65rem"; FontWeight "700"; CSSProp.Custom("text-transform","uppercase"); CSSProp.Custom("letter-spacing","0.08em"); Color "#6E6E76"; Margin "0" ] ] [ str "Log Entries  (newest first · max 50)" ]
+                div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("gap","0.5rem") ] ] [
+                    domEl "fui-button" [
+                        HTMLAttr.Custom("variant", box "secondary")
+                        HTMLAttr.Custom("size", box "small")
+                        OnClick (fun _ -> dispatch LogFetch)
+                    ] [ str "Fetch" ]
+                    if hasEntries then
+                        domEl "fui-button" [
+                            HTMLAttr.Custom("variant", box "danger")
+                            HTMLAttr.Custom("size", box "small")
+                            OnClick (fun _ -> dispatch LogClear)
+                        ] [ str "Clear All" ]
+                ]
+            ]
+            if not hasEntries then
+                wc "fui-empty-state" [ "title", "No entries"; "description", "Write an entry above, then click Fetch to load." ] []
+            else
+                div [ Style [ CSSProp.Custom("overflow-x","auto") ] ] [
+                    table [ Style [ Width "100%"; CSSProp.Custom("border-collapse","collapse"); FontFamily "'JetBrains Mono',monospace"; FontSize "0.8rem" ] ] [
+                        thead [] [
+                            tr [] [
+                                th [ Style [ TextAlign TextAlignOptions.Left; Padding "0.4rem 0.75rem"; Color "#6E6E76"; FontWeight "600"; BorderBottom "1px solid #2A2A2E"; CSSProp.Custom("white-space","nowrap"); ] ] [ str "#" ]
+                                th [ Style [ TextAlign TextAlignOptions.Left; Padding "0.4rem 0.75rem"; Color "#6E6E76"; FontWeight "600"; BorderBottom "1px solid #2A2A2E"; CSSProp.Custom("white-space","nowrap"); ] ] [ str "Time" ]
+                                th [ Style [ TextAlign TextAlignOptions.Left; Padding "0.4rem 0.75rem"; Color "#6E6E76"; FontWeight "600"; BorderBottom "1px solid #2A2A2E"; CSSProp.Custom("white-space","nowrap"); ] ] [ str "Level" ]
+                                th [ Style [ TextAlign TextAlignOptions.Left; Padding "0.4rem 0.75rem"; Color "#6E6E76"; FontWeight "600"; BorderBottom "1px solid #2A2A2E" ] ] [ str "Rendered Message" ]
+                            ]
+                        ]
+                        tbody [] [
+                            for e in entries do
+                                tr [ Style [ BorderBottom "1px solid #1F1F23" ] ] [
+                                    td [ Style [ Padding "0.4rem 0.75rem"; Color "#6E6E76" ] ] [ str (string e.id) ]
+                                    td [ Style [ Padding "0.4rem 0.75rem"; Color "#9E9EA8"; CSSProp.Custom("white-space","nowrap"); ] ] [ str e.ts ]
+                                    td [ Style [ Padding "0.4rem 0.75rem"; CSSProp.Custom("white-space","nowrap"); ] ] [
+                                        wc "fui-badge" [ "variant", levelVariant e.level ] [ str e.level ]
+                                    ]
+                                    td [ Style [ Padding "0.4rem 0.75rem"; Color "#E8E8ED" ] ] [ str e.msg ]
+                                ]
+                        ]
+                    ]
+                ]
+        ]
+
+        // ── Source ───────────────────────────────────────────────────────────
+        div [] [
+            p [ labelStyle ] [ str "Server source (F#)" ]
+            wc "fui-code-block" [ "language", "fsharp"; "code", demo.SourceCode ] []
+        ]
+    ]
+
 let backendDemoPage (slug: string) (model: Model) (dispatch: Msg -> unit) =
     match backendDemos |> List.tryFind (fun d -> d.Slug = slug) with
     | None ->
@@ -5832,6 +6057,8 @@ let backendDemoPage (slug: string) (model: Model) (dispatch: Msg -> unit) =
         softDeletePage demo model dispatch
     | Some demo when demo.Slug = "circuit-breaker" ->
         circuitBreakerPage demo model dispatch
+    | Some demo when demo.Slug = "logging" ->
+        loggingPage demo model dispatch
     | Some demo ->
         let state   = model.BackendResults |> Map.tryFind slug |> Option.defaultValue Idle
         let loading = state = Fetching

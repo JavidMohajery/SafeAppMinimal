@@ -107,6 +107,11 @@ let webApp =
         get  Route.cbCall  Demos.CircuitBreakerDemo.call
         post Route.cbReset Demos.CircuitBreakerDemo.reset
 
+        // Structured Logging
+        post   Route.logWrite   Demos.LoggingDemo.write
+        get    Route.logEntries Demos.LoggingDemo.getAll
+        delete Route.logClear   Demos.LoggingDemo.clear
+
         // API key auth
         get Route.apiKeyResource Demos.ApiKeyDemo.resource
 
