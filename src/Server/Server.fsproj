@@ -28,6 +28,7 @@
     <Compile Include="Demos/SoftDeleteDemo.fs" />
     <Compile Include="Demos/CircuitBreakerDemo.fs" />
     <Compile Include="Demos/LoggingDemo.fs" />
+    <Compile Include="Demos/TimeoutDemo.fs" />
     <Compile Include="Server.fs" />
   </ItemGroup>
   <ItemGroup>

@@ -108,6 +108,11 @@ type Model = {
     LogLastBody    : string
     LogLastStatus  : int
     LogEntries     : string
+    TimeoutWorkMs  : string
+    TimeoutLimitMs : string
+    TimeoutResult  : string
+    TimeoutStatus  : int
+    TimeoutActive  : bool
 }
 
 type Msg =
@@ -224,6 +229,11 @@ type Msg =
     | LogFetched    of int * string
     | LogClear
     | LogCleared    of int * string
+    | TimeoutSetWork  of string
+    | TimeoutSetLimit of string
+    | TimeoutSend
+    | TimeoutSent     of int * string
+    | TimeoutAbort
 
 let private defaultBulkInput = """[
   {"id":"item-1","name":"Widget Alpha","value":9.99},
@@ -267,7 +277,7 @@ let init () =
     let defaultPag  = { Filter = ""; SortBy = "id"; SortDir = "asc"; PageSize = "5"; Page = 1 }
     let defaultAuth = { Username = "admin"; Password = "password123"; Token = "" }
     let defaultVal = { ValName = ""; ValEmail = ""; ValAge = "" }
-    { Page = parsePage hash; Hash = hash; ElmishCounter = counter; BackendResults = Map.empty; Theme = Dark; SidebarOpen = false; CrudForm = defaultCrud; PagForm = defaultPag; AuthForm = defaultAuth; RateLimitLog = []; JobPolling = false; JobLog = []; WsStatus = WsIdle; WsLog = []; WsInput = ""; UploadFile = None; SseLog = []; SseActive = false; CacheEtag = ""; ContentNegAccept = "application/json"; ContentNegCt = ""; ValForm = defaultVal; ApiKey = "sk-demo-abc123"; StreamBuffer = ""; StreamActive = false; IdempKey = ""; IdempLog = []; CorrLog = []; OptEtag = ""; OptFetchedBody = ""; OptEditContent = ""; OptEditAuthor = ""; LPActive = false; LPEventId = 0; LPLog = []; LPInput = ""; RetryActive = false; RetryLog = []; RetrySession = ""; PatchName = ""; PatchEmail = ""; PatchBio = ""; PatchWebsite = ""; PatchBody = ""; VerV1Status = 0; VerV1Body = ""; VerV1Headers = ""; VerV2Status = 0; VerV2Body = ""; VerV2Headers = ""; BulkInput = defaultBulkInput; BulkBody = ""; BulkStatus = 0; SoftBody = ""; SoftShowDel = false; CBLog = []; CBFailRate = "0.7"; CBActive = false; LogLevel = "Information"; LogTemplate = "User {Name} logged in as {Role}"; LogArgs = "Alice, admin"; LogLastBody = ""; LogLastStatus = 0; LogEntries = "" }, Cmd.none
+    { Page = parsePage hash; Hash = hash; ElmishCounter = counter; BackendResults = Map.empty; Theme = Dark; SidebarOpen = false; CrudForm = defaultCrud; PagForm = defaultPag; AuthForm = defaultAuth; RateLimitLog = []; JobPolling = false; JobLog = []; WsStatus = WsIdle; WsLog = []; WsInput = ""; UploadFile = None; SseLog = []; SseActive = false; CacheEtag = ""; ContentNegAccept = "application/json"; ContentNegCt = ""; ValForm = defaultVal; ApiKey = "sk-demo-abc123"; StreamBuffer = ""; StreamActive = false; IdempKey = ""; IdempLog = []; CorrLog = []; OptEtag = ""; OptFetchedBody = ""; OptEditContent = ""; OptEditAuthor = ""; LPActive = false; LPEventId = 0; LPLog = []; LPInput = ""; RetryActive = false; RetryLog = []; RetrySession = ""; PatchName = ""; PatchEmail = ""; PatchBio = ""; PatchWebsite = ""; PatchBody = ""; VerV1Status = 0; VerV1Body = ""; VerV1Headers = ""; VerV2Status = 0; VerV2Body = ""; VerV2Headers = ""; BulkInput = defaultBulkInput; BulkBody = ""; BulkStatus = 0; SoftBody = ""; SoftShowDel = false; CBLog = []; CBFailRate = "0.7"; CBActive = false; LogLevel = "Information"; LogTemplate = "User {Name} logged in as {Role}"; LogArgs = "Alice, admin"; LogLastBody = ""; LogLastStatus = 0; LogEntries = ""; TimeoutWorkMs = "2000"; TimeoutLimitMs = "1000"; TimeoutResult = ""; TimeoutStatus = 0; TimeoutActive = false }, Cmd.none
 
 [<Fable.Core.Emit("fetch($0).then(r=>r.text().then(b=>({status:r.status,body:b})))")>]
 let private fetchGet (url: string) : Fable.Core.JS.Promise<{| status: int; body: string |}> = jsNative
@@ -447,6 +457,23 @@ let private makeLogBody (level: string) (template: string) (args: string[]) : st
 
 [<Fable.Core.Emit("(function(s){try{var a=JSON.parse(s);return Array.isArray(a)?a.map(function(e){return{id:e.id|0,ts:e.ts||'',level:e.level||'',tmpl:e.tmpl||'',msg:e.msg||'',args:e.args||[]}}):[]}catch(_){return[]}})($0)")>]
 let private parseLogEntries (s: string) : {| id: int; ts: string; level: string; tmpl: string; msg: string; args: string[] |} array = jsNative
+
+[<Fable.Core.Emit("new AbortController()")>]
+let private newAbortController () : obj = jsNative
+
+[<Fable.Core.Emit("$0.signal")>]
+let private abortSignal (ctrl: obj) : obj = jsNative
+
+[<Fable.Core.Emit("$0.abort()")>]
+let private abortCtrl (ctrl: obj) : unit = jsNative
+
+[<Fable.Core.Emit("fetch($0,{signal:$1}).then(r=>r.text().then(b=>({status:r.status,body:b})))")>]
+let private fetchWithSignal (url: string) (signal: obj) : Fable.Core.JS.Promise<{| status: int; body: string |}> = jsNative
+
+[<Fable.Core.Emit("(function(s){try{var o=JSON.parse(s);return{outcome:o.outcome||'',elapsed_ms:o.elapsed_ms|0,work_ms:o.work_ms|0,limit_ms:o.limit_ms|0}}catch(_){return{outcome:s,elapsed_ms:0,work_ms:0,limit_ms:0}}})($0)")>]
+let private parseTimeoutResp (s: string) : {| outcome: string; elapsed_ms: int; work_ms: int; limit_ms: int |} = jsNative
+
+let mutable private timeoutCtrl : obj option = None
 
 let update msg model =
     match msg with
@@ -994,6 +1021,28 @@ let update msg model =
     | LogCleared _ ->
         { model with LogEntries = ""; LogLastBody = ""; LogLastStatus = 0 }, Cmd.none
 
+    // ── Request Timeout / Cancellation ────────────────────────────────────────
+    | TimeoutSetWork  v -> { model with TimeoutWorkMs = v }, Cmd.none
+    | TimeoutSetLimit v -> { model with TimeoutLimitMs = v }, Cmd.none
+    | TimeoutSend ->
+        let ctrl   = newAbortController ()
+        timeoutCtrl <- Some ctrl
+        let url = $"/api/demo/timeout/slow?workMs={encodeQuery model.TimeoutWorkMs}&limitMs={encodeQuery model.TimeoutLimitMs}"
+        let cmd = Cmd.OfPromise.either
+                    (fun () -> fetchWithSignal url (abortSignal ctrl))
+                    ()
+                    (fun r  -> TimeoutSent(r.status, r.body))
+                    (fun ex -> TimeoutSent(0, ex.Message))
+        { model with TimeoutActive = true; TimeoutStatus = 0; TimeoutResult = "" }, cmd
+    | TimeoutSent(status, body) ->
+        timeoutCtrl <- None
+        if model.TimeoutResult = "client_abort" then model, Cmd.none
+        else { model with TimeoutActive = false; TimeoutStatus = status; TimeoutResult = body }, Cmd.none
+    | TimeoutAbort ->
+        timeoutCtrl |> Option.iter abortCtrl
+        timeoutCtrl <- None
+        { model with TimeoutActive = false; TimeoutStatus = 0; TimeoutResult = "client_abort" }, Cmd.none
+
     // ── Response Caching ─────────────────────────────────────────────────────
     | CacheFetch useEtag ->
         let inm = if useEtag then model.CacheEtag else ""
@@ -1214,6 +1263,7 @@ let sidebar (model: Model) (dispatch: Msg -> unit) =
                 sidebarLink "Soft Delete & Restore" "#/backend/soft-delete"         model.Hash
                 sidebarLink "Circuit Breaker"     "#/backend/circuit-breaker"       model.Hash
                 sidebarLink "Structured Logging"  "#/backend/logging"               model.Hash
+                sidebarLink "Timeout & Cancellation" "#/backend/timeout-cancellation" model.Hash
             ]
             div [ ClassName "sidebar-group" ] [
                 div [ ClassName "sidebar-group-label" ] [ str "Examples" ]
@@ -3702,6 +3752,35 @@ let clear : HttpHandler = fun next ctx ->
     drain ()
     Interlocked.Exchange(&nextId, 0) |> ignore
     json {| cleared = true |} next ctx""" }
+
+    { Slug        = "timeout-cancellation"
+      Name        = "Request Timeout & Cancellation"
+      Description = "Demonstrates CancellationToken-based deadline enforcement. The server links a configurable timeout to ctx.RequestAborted so both a server-side limit and a client disconnect cancel the same token, preventing orphaned background work."
+      Method      = "GET"
+      Url         = "/api/demo/timeout/slow"
+      SourceCode  =
+    """// Demos/TimeoutDemo.fs
+
+let slow : HttpHandler = fun next ctx -> task {
+    let workMs  = tryInt "workMs"  2000  // simulated work duration
+    let limitMs = tryInt "limitMs" 1000  // server-side deadline
+
+    let sw = Stopwatch.StartNew()
+    use cts = CancellationTokenSource.CreateLinkedTokenSource(ctx.RequestAborted)
+    cts.CancelAfter(limitMs)
+
+    try
+        do! Task.Delay(workMs, cts.Token)
+        return! json {| outcome = "completed"; elapsed_ms = int sw.ElapsedMilliseconds |} next ctx
+    with :? OperationCanceledException ->
+        let outcome =
+            if ctx.RequestAborted.IsCancellationRequested
+            then "client_abort"
+            else "timeout"
+        return!
+            (setStatusCode 408 >=> json {| outcome = outcome; elapsed_ms = int sw.ElapsedMilliseconds |})
+                next ctx
+}""" }
 ]
 
 let private crudApiPage (demo: BackendDemoMeta) (model: Model) (dispatch: Msg -> unit) =
@@ -5879,6 +5958,105 @@ let private circuitBreakerPage (demo: BackendDemoMeta) (model: Model) (dispatch:
         ]
     ]
 
+// ── Request Timeout / Cancellation page ──────────────────────────────────────
+
+let private timeoutPage (demo: BackendDemoMeta) (model: Model) (dispatch: Msg -> unit) =
+    let labelStyle  = Style [ FontFamily "'JetBrains Mono',monospace"; FontSize "0.65rem"; FontWeight "700"; CSSProp.Custom("text-transform","uppercase"); CSSProp.Custom("letter-spacing","0.08em"); Color "#6E6E76"; MarginBottom "0.5rem" ]
+    let codePreStyle = Style [ Margin "0"; FontFamily "'JetBrains Mono',monospace"; FontSize "0.8rem"; Color "#E8E8ED"; LineHeight "1.7"; CSSProp.Custom("white-space","pre-wrap") ]
+    let panelStyle  = Style [ Background "#0D0D0F"; Border "1px solid #2A2A2E"; BorderRadius "8px"; Padding "1.125rem 1.375rem"; CSSProp.Custom("overflow","auto") ]
+    let cardStyle   = Style [ Background "#161618"; Border "1px solid #2A2A2E"; BorderRadius "10px"; Padding "1.25rem 1.5rem"; MarginBottom "1.25rem" ]
+    let inputStyle  = Style [ Background "#0D0D0F"; Border "1px solid #2A2A2E"; BorderRadius "6px"; Color "#E8E8ED"; FontFamily "'JetBrains Mono',monospace"; FontSize "0.875rem"; Padding "0.5rem 0.75rem"; Width "120px"; Outline "none" ]
+    let fieldLbl    = Style [ Display DisplayOptions.Block; FontFamily "'JetBrains Mono',monospace"; FontSize "0.72rem"; Color "#6E6E76"; MarginBottom "0.35rem" ]
+
+    let timeoutR = parseTimeoutResp model.TimeoutResult
+
+    let outcomeView =
+        match model.TimeoutResult with
+        | "" ->
+            wc "fui-empty-state" [ "title", "No request yet"; "description", "Configure the durations and click Send." ] []
+        | "client_abort" ->
+            div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("align-items","center"); CSSProp.Custom("gap","0.625rem") ] ] [
+                wc "fui-badge" [ "variant", "warning" ] [ str "Aborted" ]
+                span [ Style [ FontFamily "'JetBrains Mono',monospace"; FontSize "0.8rem"; Color "#9E9EA8" ] ] [ str "Request cancelled by the client before the server responded." ]
+            ]
+        | _ ->
+            let statusVariant = if model.TimeoutStatus = 200 then "success" else "danger"
+            let outcomeLabel  =
+                match timeoutR.outcome with
+                | "completed"    -> "Completed"
+                | "timeout"      -> "Server Timeout"
+                | "client_abort" -> "Client Abort"
+                | other          -> other
+            div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("flex-direction","column"); CSSProp.Custom("gap","0.625rem") ] ] [
+                div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("align-items","center"); CSSProp.Custom("gap","0.5rem") ] ] [
+                    wc "fui-badge" [ "variant", statusVariant ] [ str $"HTTP {model.TimeoutStatus}" ]
+                    wc "fui-badge" [ "variant", (if model.TimeoutStatus = 200 then "success" else "warning") ] [ str outcomeLabel ]
+                    span [ Style [ FontFamily "'JetBrains Mono',monospace"; FontSize "0.78rem"; Color "#9E9EA8" ] ] [ str $"elapsed: {timeoutR.elapsed_ms} ms" ]
+                ]
+                div [ panelStyle ] [ pre [ codePreStyle ] [ str model.TimeoutResult ] ]
+            ]
+
+    div [ ClassName "comp-page" ] [
+        div [ ClassName "comp-header" ] [
+            div [ ClassName "comp-header-row" ] [
+                h1 [ ClassName "comp-name" ] [ str demo.Name ]
+                wc "fui-badge" [ "variant", "accent" ] [ str "Backend" ]
+            ]
+            p [ Style [ FontFamily "'Sora',sans-serif"; Color "#6E6E76"; Margin "0" ] ] [ str demo.Description ]
+        ]
+
+        // ── Controls ────────────────────────────────────────────────────────
+        div [ cardStyle ] [
+            p [ labelStyle ] [ str "Configure the Request" ]
+            div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("align-items","flex-end"); CSSProp.Custom("gap","1.25rem"); CSSProp.Custom("flex-wrap","wrap") ] ] [
+                div [] [
+                    span [ fieldLbl ] [ str "Work duration (ms)" ]
+                    input [ inputStyle; Value model.TimeoutWorkMs; Placeholder "2000"; OnChange (fun e -> dispatch (TimeoutSetWork e.Value)); Type "number"; Min "0"; Max "30000" ]
+                ]
+                div [] [
+                    span [ fieldLbl ] [ str "Server timeout (ms)" ]
+                    input [ inputStyle; Value model.TimeoutLimitMs; Placeholder "1000"; OnChange (fun e -> dispatch (TimeoutSetLimit e.Value)); Type "number"; Min "50"; Max "30000" ]
+                ]
+                div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("gap","0.5rem") ] ] [
+                    domEl "fui-button" [
+                        HTMLAttr.Custom("variant", box "primary")
+                        if model.TimeoutActive then HTMLAttr.Custom("disabled", box "")
+                        OnClick (fun _ -> dispatch TimeoutSend)
+                    ] [ str (if model.TimeoutActive then "In flight…" else "Send") ]
+                    if model.TimeoutActive then
+                        domEl "fui-button" [
+                            HTMLAttr.Custom("variant", box "danger")
+                            OnClick (fun _ -> dispatch TimeoutAbort)
+                        ] [ str "Abort" ]
+                ]
+            ]
+            p [ Style [ FontFamily "'Sora',sans-serif"; FontSize "0.82rem"; Color "#6E6E76"; Margin "0.875rem 0 0" ] ] [
+                str "If Work > Timeout the server cancels the delay and returns "
+                code [ Style [ FontFamily "'JetBrains Mono',monospace"; Color "#E8E8ED" ] ] [ str "408" ]
+                str ". Clicking Abort sends a browser AbortController signal — the server detects "
+                code [ Style [ FontFamily "'JetBrains Mono',monospace"; Color "#E8E8ED" ] ] [ str "ctx.RequestAborted" ]
+                str " and the fetch rejects on the client."
+            ]
+        ]
+
+        // ── Result ──────────────────────────────────────────────────────────
+        div [ cardStyle ] [
+            p [ labelStyle ] [ str "Result" ]
+            if model.TimeoutActive then
+                div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("align-items","center"); CSSProp.Custom("gap","0.75rem") ] ] [
+                    wc "fui-spinner" [ "label", "Waiting for server…" ] []
+                ]
+            else
+                outcomeView
+        ]
+
+        // ── Source ───────────────────────────────────────────────────────────
+        div [] [
+            p [ labelStyle ] [ str "Server source (F#)" ]
+            wc "fui-code-block" [ "language", "fsharp"; "code", demo.SourceCode ] []
+        ]
+    ]
+
 // ── Structured Logging page ───────────────────────────────────────────────────
 
 let private loggingPage (demo: BackendDemoMeta) (model: Model) (dispatch: Msg -> unit) =
@@ -6059,6 +6237,8 @@ let backendDemoPage (slug: string) (model: Model) (dispatch: Msg -> unit) =
         circuitBreakerPage demo model dispatch
     | Some demo when demo.Slug = "logging" ->
         loggingPage demo model dispatch
+    | Some demo when demo.Slug = "timeout-cancellation" ->
+        timeoutPage demo model dispatch
     | Some demo ->
         let state   = model.BackendResults |> Map.tryFind slug |> Option.defaultValue Idle
         let loading = state = Fetching

@@ -112,6 +112,9 @@ let webApp =
         get    Route.logEntries Demos.LoggingDemo.getAll
         delete Route.logClear   Demos.LoggingDemo.clear
 
+        // Request Timeout / Cancellation
+        get Route.timeoutSlow Demos.TimeoutDemo.slow
+
         // API key auth
         get Route.apiKeyResource Demos.ApiKeyDemo.resource
 

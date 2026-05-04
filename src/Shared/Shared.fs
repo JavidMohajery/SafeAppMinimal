@@ -91,3 +91,6 @@ module Route =
     let logWrite   = "/api/demo/logging/write"
     let logEntries = "/api/demo/logging/entries"
     let logClear   = "/api/demo/logging/clear"
+
+    // Request Timeout / Cancellation
+    let timeoutSlow = "/api/demo/timeout/slow"
