@@ -94,3 +94,7 @@ module Route =
 
     // Request Timeout / Cancellation
     let timeoutSlow = "/api/demo/timeout/slow"
+
+    // Feature Flags
+    let flagList     = "/api/demo/flags"
+    let flagResource = "/api/demo/flags/resource"

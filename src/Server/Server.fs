@@ -115,6 +115,12 @@ let webApp =
         // Request Timeout / Cancellation
         get Route.timeoutSlow Demos.TimeoutDemo.slow
 
+        // Feature Flags
+        get   Route.flagList                           Demos.FeatureFlagsDemo.getAll
+        get   Route.flagResource                       Demos.FeatureFlagsDemo.resource
+        postf "/api/demo/flags/%s/enable"              Demos.FeatureFlagsDemo.enable
+        postf "/api/demo/flags/%s/disable"             Demos.FeatureFlagsDemo.disable
+
         // API key auth
         get Route.apiKeyResource Demos.ApiKeyDemo.resource
 

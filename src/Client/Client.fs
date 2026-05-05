@@ -113,6 +113,9 @@ type Model = {
     TimeoutResult  : string
     TimeoutStatus  : int
     TimeoutActive  : bool
+    FlagList       : string
+    FlagResBody    : string
+    FlagResStatus  : int
 }
 
 type Msg =
@@ -234,6 +237,12 @@ type Msg =
     | TimeoutSend
     | TimeoutSent     of int * string
     | TimeoutAbort
+    | FlagFetch
+    | FlagFetched     of string
+    | FlagToggle      of string * bool
+    | FlagToggled
+    | FlagCallRes
+    | FlagResReceived of int * string
 
 let private defaultBulkInput = """[
   {"id":"item-1","name":"Widget Alpha","value":9.99},
@@ -277,7 +286,7 @@ let init () =
     let defaultPag  = { Filter = ""; SortBy = "id"; SortDir = "asc"; PageSize = "5"; Page = 1 }
     let defaultAuth = { Username = "admin"; Password = "password123"; Token = "" }
     let defaultVal = { ValName = ""; ValEmail = ""; ValAge = "" }
-    { Page = parsePage hash; Hash = hash; ElmishCounter = counter; BackendResults = Map.empty; Theme = Dark; SidebarOpen = false; CrudForm = defaultCrud; PagForm = defaultPag; AuthForm = defaultAuth; RateLimitLog = []; JobPolling = false; JobLog = []; WsStatus = WsIdle; WsLog = []; WsInput = ""; UploadFile = None; SseLog = []; SseActive = false; CacheEtag = ""; ContentNegAccept = "application/json"; ContentNegCt = ""; ValForm = defaultVal; ApiKey = "sk-demo-abc123"; StreamBuffer = ""; StreamActive = false; IdempKey = ""; IdempLog = []; CorrLog = []; OptEtag = ""; OptFetchedBody = ""; OptEditContent = ""; OptEditAuthor = ""; LPActive = false; LPEventId = 0; LPLog = []; LPInput = ""; RetryActive = false; RetryLog = []; RetrySession = ""; PatchName = ""; PatchEmail = ""; PatchBio = ""; PatchWebsite = ""; PatchBody = ""; VerV1Status = 0; VerV1Body = ""; VerV1Headers = ""; VerV2Status = 0; VerV2Body = ""; VerV2Headers = ""; BulkInput = defaultBulkInput; BulkBody = ""; BulkStatus = 0; SoftBody = ""; SoftShowDel = false; CBLog = []; CBFailRate = "0.7"; CBActive = false; LogLevel = "Information"; LogTemplate = "User {Name} logged in as {Role}"; LogArgs = "Alice, admin"; LogLastBody = ""; LogLastStatus = 0; LogEntries = ""; TimeoutWorkMs = "2000"; TimeoutLimitMs = "1000"; TimeoutResult = ""; TimeoutStatus = 0; TimeoutActive = false }, Cmd.none
+    { Page = parsePage hash; Hash = hash; ElmishCounter = counter; BackendResults = Map.empty; Theme = Dark; SidebarOpen = false; CrudForm = defaultCrud; PagForm = defaultPag; AuthForm = defaultAuth; RateLimitLog = []; JobPolling = false; JobLog = []; WsStatus = WsIdle; WsLog = []; WsInput = ""; UploadFile = None; SseLog = []; SseActive = false; CacheEtag = ""; ContentNegAccept = "application/json"; ContentNegCt = ""; ValForm = defaultVal; ApiKey = "sk-demo-abc123"; StreamBuffer = ""; StreamActive = false; IdempKey = ""; IdempLog = []; CorrLog = []; OptEtag = ""; OptFetchedBody = ""; OptEditContent = ""; OptEditAuthor = ""; LPActive = false; LPEventId = 0; LPLog = []; LPInput = ""; RetryActive = false; RetryLog = []; RetrySession = ""; PatchName = ""; PatchEmail = ""; PatchBio = ""; PatchWebsite = ""; PatchBody = ""; VerV1Status = 0; VerV1Body = ""; VerV1Headers = ""; VerV2Status = 0; VerV2Body = ""; VerV2Headers = ""; BulkInput = defaultBulkInput; BulkBody = ""; BulkStatus = 0; SoftBody = ""; SoftShowDel = false; CBLog = []; CBFailRate = "0.7"; CBActive = false; LogLevel = "Information"; LogTemplate = "User {Name} logged in as {Role}"; LogArgs = "Alice, admin"; LogLastBody = ""; LogLastStatus = 0; LogEntries = ""; TimeoutWorkMs = "2000"; TimeoutLimitMs = "1000"; TimeoutResult = ""; TimeoutStatus = 0; TimeoutActive = false; FlagList = ""; FlagResBody = ""; FlagResStatus = 0 }, Cmd.none
 
 [<Fable.Core.Emit("fetch($0).then(r=>r.text().then(b=>({status:r.status,body:b})))")>]
 let private fetchGet (url: string) : Fable.Core.JS.Promise<{| status: int; body: string |}> = jsNative
@@ -474,6 +483,9 @@ let private fetchWithSignal (url: string) (signal: obj) : Fable.Core.JS.Promise<
 let private parseTimeoutResp (s: string) : {| outcome: string; elapsed_ms: int; work_ms: int; limit_ms: int |} = jsNative
 
 let mutable private timeoutCtrl : obj option = None
+
+[<Fable.Core.Emit("(function(s){try{var a=JSON.parse(s);return Array.isArray(a)?a.map(function(f){return{name:f.name||'',enabled:!!f.enabled}}):[]}catch(_){return[]}})($0)")>]
+let private parseFlagList (s: string) : {| name: string; enabled: bool |} array = jsNative
 
 let update msg model =
     match msg with
@@ -1043,6 +1055,38 @@ let update msg model =
         timeoutCtrl <- None
         { model with TimeoutActive = false; TimeoutStatus = 0; TimeoutResult = "client_abort" }, Cmd.none
 
+    // ── Feature Flags ─────────────────────────────────────────────────────────
+    | FlagFetch ->
+        let cmd = Cmd.OfPromise.either
+                    fetchGet "/api/demo/flags"
+                    (fun r  -> FlagFetched r.body)
+                    (fun _  -> FlagFetched "")
+        model, cmd
+    | FlagFetched body ->
+        { model with FlagList = body }, Cmd.none
+    | FlagToggle(name, enable) ->
+        let action = if enable then "enable" else "disable"
+        let cmd = Cmd.OfPromise.either
+                    (fun () -> fetchJson $"/api/demo/flags/{name}/{action}" "POST" "")
+                    ()
+                    (fun _  -> FlagToggled)
+                    (fun _  -> FlagToggled)
+        model, cmd
+    | FlagToggled ->
+        let cmd = Cmd.OfPromise.either
+                    fetchGet "/api/demo/flags"
+                    (fun r  -> FlagFetched r.body)
+                    (fun _  -> FlagFetched "")
+        model, cmd
+    | FlagCallRes ->
+        let cmd = Cmd.OfPromise.either
+                    fetchGet "/api/demo/flags/resource"
+                    (fun r  -> FlagResReceived(r.status, r.body))
+                    (fun ex -> FlagResReceived(0, ex.Message))
+        model, cmd
+    | FlagResReceived(status, body) ->
+        { model with FlagResStatus = status; FlagResBody = body }, Cmd.none
+
     // ── Response Caching ─────────────────────────────────────────────────────
     | CacheFetch useEtag ->
         let inm = if useEtag then model.CacheEtag else ""
@@ -1264,6 +1308,7 @@ let sidebar (model: Model) (dispatch: Msg -> unit) =
                 sidebarLink "Circuit Breaker"     "#/backend/circuit-breaker"       model.Hash
                 sidebarLink "Structured Logging"  "#/backend/logging"               model.Hash
                 sidebarLink "Timeout & Cancellation" "#/backend/timeout-cancellation" model.Hash
+                sidebarLink "Feature Flags"         "#/backend/feature-flags"         model.Hash
             ]
             div [ ClassName "sidebar-group" ] [
                 div [ ClassName "sidebar-group-label" ] [ str "Examples" ]
@@ -3781,6 +3826,40 @@ let slow : HttpHandler = fun next ctx -> task {
             (setStatusCode 408 >=> json {| outcome = outcome; elapsed_ms = int sw.ElapsedMilliseconds |})
                 next ctx
 }""" }
+
+    { Slug        = "feature-flags"
+      Name        = "Feature Flags"
+      Description = "In-memory flag store with enable/disable endpoints. A protected resource returns a different shape (or error status) depending on which flags are active, demonstrating runtime behaviour changes without redeployment."
+      Method      = "GET"
+      Url         = "/api/demo/flags/resource"
+      SourceCode  =
+    """// Demos/FeatureFlagsDemo.fs
+
+let private flags =
+    [| "feature-x", false; "maintenance", false; "beta-endpoint", true |]
+    |> Array.map System.Collections.Generic.KeyValuePair
+    |> ConcurrentDictionary<string, bool>
+
+let private flag name = flags.TryGetValue name |> function true, v -> v | _ -> false
+
+let resource : HttpHandler = fun next ctx ->
+    match () with
+    | _ when flag "maintenance"         ->
+        (setStatusCode 503 >=> json {| error = "Under maintenance"; trigger = "maintenance" |}) next ctx
+    | _ when not (flag "beta-endpoint") ->
+        (setStatusCode 404 >=> json {| error = "Endpoint not available"; trigger = "beta-endpoint" |}) next ctx
+    | _ when flag "feature-x"           ->
+        json {| message = "Enhanced response — feature-x is ON"; extras = {| version = "2.0" |} |} next ctx
+    | _                                 ->
+        json {| message = "Standard response — feature-x is OFF" |} next ctx
+
+let enable  (name: string) : HttpHandler = fun next ctx ->
+    flags.AddOrUpdate(name, true,  fun _ _ -> true)  |> ignore
+    json {| name = name; enabled = true |} next ctx
+
+let disable (name: string) : HttpHandler = fun next ctx ->
+    flags.AddOrUpdate(name, false, fun _ _ -> false) |> ignore
+    json {| name = name; enabled = false |} next ctx""" }
 ]
 
 let private crudApiPage (demo: BackendDemoMeta) (model: Model) (dispatch: Msg -> unit) =
@@ -5958,6 +6037,91 @@ let private circuitBreakerPage (demo: BackendDemoMeta) (model: Model) (dispatch:
         ]
     ]
 
+// ── Feature Flags page ───────────────────────────────────────────────────────
+
+let private featureFlagsPage (demo: BackendDemoMeta) (model: Model) (dispatch: Msg -> unit) =
+    let labelStyle   = Style [ FontFamily "'JetBrains Mono',monospace"; FontSize "0.65rem"; FontWeight "700"; CSSProp.Custom("text-transform","uppercase"); CSSProp.Custom("letter-spacing","0.08em"); Color "#6E6E76"; MarginBottom "0.5rem" ]
+    let codePreStyle = Style [ Margin "0"; FontFamily "'JetBrains Mono',monospace"; FontSize "0.8rem"; Color "#E8E8ED"; LineHeight "1.7"; CSSProp.Custom("white-space","pre-wrap") ]
+    let panelStyle   = Style [ Background "#0D0D0F"; Border "1px solid #2A2A2E"; BorderRadius "8px"; Padding "1.125rem 1.375rem"; CSSProp.Custom("overflow","auto") ]
+    let cardStyle    = Style [ Background "#161618"; Border "1px solid #2A2A2E"; BorderRadius "10px"; Padding "1.25rem 1.5rem"; MarginBottom "1.25rem" ]
+
+    let statusVariant code =
+        if code >= 200 && code < 300 then "success"
+        elif code >= 500 then "danger"
+        elif code >= 400 then "warning"
+        else "info"
+
+    let flags    = parseFlagList model.FlagList
+    let hasFlags = model.FlagList <> ""
+
+    div [ ClassName "comp-page" ] [
+        div [ ClassName "comp-header" ] [
+            div [ ClassName "comp-header-row" ] [
+                h1 [ ClassName "comp-name" ] [ str demo.Name ]
+                wc "fui-badge" [ "variant", "accent" ] [ str "Backend" ]
+            ]
+            p [ Style [ FontFamily "'Sora',sans-serif"; Color "#6E6E76"; Margin "0" ] ] [ str demo.Description ]
+        ]
+
+        // ── Flag table ───────────────────────────────────────────────────────
+        div [ cardStyle ] [
+            div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("justify-content","space-between"); CSSProp.Custom("align-items","center"); MarginBottom "1rem" ] ] [
+                p [ Style [ FontFamily "'JetBrains Mono',monospace"; FontSize "0.65rem"; FontWeight "700"; CSSProp.Custom("text-transform","uppercase"); CSSProp.Custom("letter-spacing","0.08em"); Color "#6E6E76"; Margin "0" ] ] [ str "Flag Store" ]
+                domEl "fui-button" [
+                    HTMLAttr.Custom("variant", box "secondary")
+                    HTMLAttr.Custom("size", box "small")
+                    OnClick (fun _ -> dispatch FlagFetch)
+                ] [ str "Refresh" ]
+            ]
+            if not hasFlags then
+                wc "fui-empty-state" [ "title", "No data"; "description", "Click Refresh to load flags from the server." ] []
+            else
+                div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("flex-direction","column"); CSSProp.Custom("gap","0.5rem") ] ] [
+                    for f in flags do
+                        div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("align-items","center"); CSSProp.Custom("gap","0.75rem"); Background "#0D0D0F"; BorderRadius "6px"; Padding "0.6rem 0.875rem" ] ] [
+                            code [ Style [ FontFamily "'JetBrains Mono',monospace"; FontSize "0.85rem"; Color "#E8E8ED"; CSSProp.Custom("flex","1") ] ] [ str f.name ]
+                            wc "fui-badge" [ "variant", (if f.enabled then "success" else "secondary") ] [ str (if f.enabled then "ON" else "OFF") ]
+                            domEl "fui-button" [
+                                HTMLAttr.Custom("variant", box (if f.enabled then "danger" else "success"))
+                                HTMLAttr.Custom("size", box "small")
+                                OnClick (fun _ -> dispatch (FlagToggle(f.name, not f.enabled)))
+                            ] [ str (if f.enabled then "Disable" else "Enable") ]
+                        ]
+                ]
+        ]
+
+        // ── Protected resource ───────────────────────────────────────────────
+        div [ cardStyle ] [
+            p [ labelStyle ] [ str "Protected Resource  GET /api/demo/flags/resource" ]
+            p [ Style [ FontFamily "'Sora',sans-serif"; FontSize "0.82rem"; Color "#6E6E76"; Margin "0 0 1rem" ] ] [
+                str "Response shape changes based on current flag state: "
+                code [ Style [ FontFamily "'JetBrains Mono',monospace"; Color "#E8E8ED" ] ] [ str "maintenance" ]
+                str " → 503 · "
+                code [ Style [ FontFamily "'JetBrains Mono',monospace"; Color "#E8E8ED" ] ] [ str "beta-endpoint" ]
+                str " off → 404 · "
+                code [ Style [ FontFamily "'JetBrains Mono',monospace"; Color "#E8E8ED" ] ] [ str "feature-x" ]
+                str " on → enhanced 200"
+            ]
+            domEl "fui-button" [
+                HTMLAttr.Custom("variant", box "primary")
+                OnClick (fun _ -> dispatch FlagCallRes)
+            ] [ str "Call Resource" ]
+            if model.FlagResStatus > 0 then
+                div [ Style [ MarginTop "1rem" ] ] [
+                    div [ Style [ Display DisplayOptions.Flex; CSSProp.Custom("align-items","center"); CSSProp.Custom("gap","0.5rem"); MarginBottom "0.625rem" ] ] [
+                        wc "fui-badge" [ "variant", statusVariant model.FlagResStatus ] [ str $"HTTP {model.FlagResStatus}" ]
+                    ]
+                    div [ panelStyle ] [ pre [ codePreStyle ] [ str model.FlagResBody ] ]
+                ]
+        ]
+
+        // ── Source ────────────────────────────────────────────────────────────
+        div [] [
+            p [ labelStyle ] [ str "Server source (F#)" ]
+            wc "fui-code-block" [ "language", "fsharp"; "code", demo.SourceCode ] []
+        ]
+    ]
+
 // ── Request Timeout / Cancellation page ──────────────────────────────────────
 
 let private timeoutPage (demo: BackendDemoMeta) (model: Model) (dispatch: Msg -> unit) =
@@ -6239,6 +6403,8 @@ let backendDemoPage (slug: string) (model: Model) (dispatch: Msg -> unit) =
         loggingPage demo model dispatch
     | Some demo when demo.Slug = "timeout-cancellation" ->
         timeoutPage demo model dispatch
+    | Some demo when demo.Slug = "feature-flags" ->
+        featureFlagsPage demo model dispatch
     | Some demo ->
         let state   = model.BackendResults |> Map.tryFind slug |> Option.defaultValue Idle
         let loading = state = Fetching
